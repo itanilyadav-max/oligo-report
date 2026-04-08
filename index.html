@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Oligo Admin - Order Execution</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Transitions */
+        #sidebar { transition: transform 0.3s ease-in-out; }
+        .hidden-force { display: none !important; }
+
+        /* Navigation Active State */
+        .nav-item.active {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border-right: 4px solid #10b981;
+        }
+
+        /* Status Badges */
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .badge-delivered { background-color: #dbeafe; color: #1d4ed8; }
+        .badge-active { background-color: #dcfce7; color: #15803d; }
+        .badge-pending { background-color: #fef9c3; color: #a16207; }
+        .badge-cancelled { background-color: #fee2e2; color: #b91c1c; }
+        .badge-shortfall { background-color: #ffedd5; color: #c2410c; }
+        
+        /* Report Cards */
+        .report-card { transition: all 0.2s; cursor: pointer; }
+        .report-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+
+        /* PRINT STYLES */
+        @media print {
+            body * { visibility: hidden; }
+            #reportContainer, #reportContainer * { visibility: visible; }
+            #reportContainer { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                border: none; 
+                box-shadow: none; 
+                background: white;
+            }
+            #reportActions { display: none !important; }
+            table { width: 100% !important; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd !important; color: black !important; }
+        }
+
+        /* Better visibility for tables on small screens */
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    </style>
+</head>
+<body class="text-gray-800 h-screen overflow-hidden flex flex-col">
+
+    <!-- LOGIN SCREEN -->
+    <section id="loginView" class="fixed inset-0 z-[60] bg-gray-900 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-8">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-green-100 text-green-600 rounded-lg text-xl mb-3">
+                    <i class="fas fa-leaf"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">Oligo Admin</h1>
+                <p class="text-gray-500 text-sm">Sign in to manage the platform</p>
+            </div>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="adminEmail" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="admin@oligo.com" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="adminPass" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" placeholder="••••••" required>
+                </div>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow transition">
+                    Login
+                </button>
+                <p id="loginError" class="text-red-500 text-xs text-center hidden mt-2"></p>
+            </form>
+        </div>
+    </section>
+
+    <!-- DASHBOARD LAYOUT -->
+    <div id="dashboardView" class="flex h-full hidden-force relative overflow-hidden">
+        
+        <!-- Mobile Sidebar Overlay -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-60 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed md:relative z-50 w-72 md:w-64 h-full bg-slate-900 text-gray-400 flex flex-col transform -translate-x-full md:translate-x-0 print:hidden shadow-2xl md:shadow-none">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800 flex-shrink-0">
+                <i class="fas fa-leaf text-green-500 text-xl mr-3"></i>
+                <span class="text-white font-black text-xl tracking-tight">OLIGO<span class="text-green-500">.</span></span>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
+                <a onclick="switchTab('stats')" id="nav-stats" class="nav-item active flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-chart-pie w-6"></i> <span class="font-bold ml-3 text-sm tracking-wide">Dashboard</span>
+                </a>
+                <a onclick="switchTab('reports')" id="nav-reports" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-chart-line w-6"></i> <span class="font-bold ml-3 text-sm tracking-wide">Advanced Reports</span>
+                </a>
+                
+                <p class="px-6 py-2 text-[10px] font-black text-slate-500 uppercase mt-6 tracking-widest">Entities</p>
+                <a onclick="switchTab('producers')" id="nav-producers" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-seedling w-6"></i> <span class="font-medium ml-3 text-sm">Producers</span>
+                </a>
+                <a onclick="switchTab('farmers')" id="nav-farmers" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-tractor w-6"></i> <span class="font-medium ml-3 text-sm">Farmers</span>
+                </a>
+                <a onclick="switchTab('stationery')" id="nav-stationery" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-pencil-ruler w-6"></i> <span class="font-medium ml-3 text-sm">Stationery</span>
+                </a>
+                <a onclick="switchTab('delivery')" id="nav-delivery" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-motorcycle w-6"></i> <span class="font-medium ml-3 text-sm">Delivery</span>
+                </a>
+
+                <p class="px-6 py-2 text-[10px] font-black text-slate-500 uppercase mt-6 tracking-widest">Operations</p>
+                <a onclick="switchTab('intel')" id="nav-intel" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-lightbulb w-6 text-yellow-400"></i> <span class="font-bold ml-3 text-sm">Business Intel</span>
+                </a>
+                <a onclick="switchTab('holidays')" id="nav-holidays" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-calendar-times w-6 text-red-400"></i> <span class="font-medium ml-3 text-sm">Holidays</span>
+                </a>
+                <a onclick="switchTab('orders')" id="nav-orders" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-receipt w-6"></i> <span class="font-medium ml-3 text-sm">Orders</span>
+                </a>
+                <a onclick="switchTab('customers')" id="nav-customers" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-users w-6"></i> <span class="font-medium ml-3 text-sm">Customers</span>
+                </a>
+                <a onclick="switchTab('maintenance')" id="nav-maintenance" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-tools w-6"></i> <span class="font-medium ml-3 text-sm">Maintenance Logs</span>
+                </a>
+                <a onclick="switchTab('seedlab')" id="nav-seedlab" class="nav-item flex items-center px-6 py-3 hover:bg-slate-800 hover:text-white cursor-pointer transition">
+                    <i class="fas fa-flask w-6"></i> <span class="font-medium ml-3 text-sm">Seed Lab Results</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-900/50 flex-shrink-0">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white border-2 border-slate-600 shadow-inner"><i class="fas fa-user-shield"></i></div>
+                    <div class="overflow-hidden">
+                        <p class="text-white text-xs font-black truncate uppercase" id="adminEmailDisplay">Admin</p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">System Administrator</p>
+                    </div>
+                </div>
+                <button id="logoutBtn" class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-xs font-black transition shadow-lg flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> LOGOUT
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
+            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-6 z-10 flex-shrink-0 print:hidden">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"><i class="fas fa-bars text-xl"></i></button>
+                    <h2 id="pageTitle" class="text-lg md:text-xl font-bold text-gray-800 truncate">Dashboard Overview</h2>
+                </div>
+                <span id="connStatus" class="text-[10px] px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full font-black uppercase tracking-widest shadow-sm">Connecting...</span>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-3 md:p-6" id="mainScroll">
+                
+                <!-- 1. DASHBOARD -->
+                <div id="tab-stats" class="view-content animate-fadeIn">
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
+                        <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <p class="text-gray-500 text-[10px] font-black uppercase tracking-wider">Orders</p>
+                            <h3 class="text-xl md:text-2xl font-black text-gray-800 mt-1" id="statOrders">0</h3>
+                            <i class="fas fa-shopping-cart absolute bottom-2 right-2 text-2xl text-gray-100 opacity-50"></i>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <p class="text-gray-500 text-[10px] font-black uppercase tracking-wider">Revenue (Boxes)</p>
+                            <h3 class="text-xl md:text-2xl font-black text-gray-800 mt-1" id="statRevenue">0</h3>
+                            <i class="fas fa-cubes absolute bottom-2 right-2 text-2xl text-blue-100 opacity-50"></i>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <p class="text-gray-500 text-[10px] font-black uppercase tracking-wider">Producers</p>
+                            <h3 class="text-xl md:text-2xl font-black text-gray-800 mt-1" id="statProducers">0</h3>
+                            <i class="fas fa-seedling absolute bottom-2 right-2 text-2xl text-green-100 opacity-50"></i>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <p class="text-gray-500 text-[10px] font-black uppercase tracking-wider">Farmers</p>
+                            <h3 class="text-xl md:text-2xl font-black text-gray-800 mt-1" id="statFarmers">0</h3>
+                            <i class="fas fa-tractor absolute bottom-2 right-2 text-2xl text-amber-100 opacity-50"></i>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <p class="text-gray-500 text-[10px] font-black uppercase tracking-wider">Stationery</p>
+                            <h3 class="text-xl md:text-2xl font-black text-gray-800 mt-1" id="statStationery">0</h3>
+                            <i class="fas fa-pencil-ruler absolute bottom-2 right-2 text-2xl text-blue-100 opacity-50"></i>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                            <p class="text-gray-500 text-[10px] font-black uppercase tracking-wider">Open Issues</p>
+                            <h3 class="text-xl md:text-2xl font-black text-red-600 mt-1" id="statIssues">0</h3>
+                            <i class="fas fa-tools absolute bottom-2 right-2 text-2xl text-red-100 opacity-50"></i>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        <!-- Live Farm Activity -->
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl shadow-sm border border-green-100">
+                            <h3 class="font-black text-green-800 mb-4 flex items-center text-xs uppercase tracking-widest">
+                                <i class="fas fa-broadcast-tower mr-2 animate-pulse"></i> Live Farm Activity
+                            </h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center bg-white p-4 rounded-xl border border-green-100 shadow-sm">
+                                    <div>
+                                        <p class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Active Batches</p>
+                                        <p class="text-base font-bold text-gray-800">Growing Now</p>
+                                    </div>
+                                    <span class="text-3xl font-black text-green-600" id="statActiveBatches">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                                    <div>
+                                        <p class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Pending Sowing</p>
+                                        <p class="text-base font-bold text-gray-800">Tasks Queue</p>
+                                    </div>
+                                    <span class="text-3xl font-black text-blue-600" id="statPendingSowing">0</span>
+                                </div>
+                                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <p class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Daily Ops</p>
+                                        <p class="text-base font-bold text-gray-800">Completion</p>
+                                    </div>
+                                    <span class="text-3xl font-black text-slate-800" id="statDailyOps">0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weekly Sales Chart -->
+                        <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col">
+                            <h3 class="font-black text-gray-800 mb-4 text-[10px] uppercase tracking-widest">Weekly Sales Trend (Revenue)</h3>
+                            <div class="flex-1 min-h-[220px]">
+                                <canvas id="adminSalesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="font-black text-gray-800 mb-4 text-[10px] uppercase tracking-widest">System Broadcast Notification</h3>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <input type="text" id="notifInput" class="flex-1 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 transition-shadow" placeholder="Message will be visible to all app users...">
+                            <button id="sendNotifBtn" class="bg-slate-900 hover:bg-black text-white px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition shadow-lg">Send Broadcast</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. REPORTS -->
+                <div id="tab-reports" class="view-content hidden-force">
+                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 md:gap-3 mb-6 print:hidden">
+                        <div onclick="generateReport('weekly')" class="report-card bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm">
+                            <i class="fas fa-calendar-week text-blue-500 mb-2 block text-xl"></i>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Weekly</span>
+                        </div>
+                        <div onclick="generateReport('monthly')" class="report-card bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm">
+                            <i class="fas fa-calendar-alt text-blue-600 mb-2 block text-xl"></i>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Monthly</span>
+                        </div>
+                        <div onclick="generateReport('quarterly')" class="report-card bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm">
+                            <i class="fas fa-chart-bar text-blue-700 mb-2 block text-xl"></i>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Quarterly</span>
+                        </div>
+                        <div onclick="generateReport('shortfall')" class="report-card bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm">
+                            <i class="fas fa-exclamation-triangle text-orange-500 mb-2 block text-xl"></i>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Shortfall</span>
+                        </div>
+                        <div onclick="generateReport('cancelled')" class="report-card bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm">
+                            <i class="fas fa-ban text-red-500 mb-2 block text-xl"></i>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Cancelled</span>
+                        </div>
+                        <div onclick="generateReport('best_selling')" class="report-card bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm">
+                            <i class="fas fa-arrow-up text-green-500 mb-2 block text-xl"></i>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Best Sellers</span>
+                        </div>
+                        <div onclick="generateReport('least_selling')" class="report-card bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm">
+                            <i class="fas fa-arrow-down text-gray-400 mb-2 block text-xl"></i>
+                            <span class="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Least Sellers</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6 print:hidden">
+                        <h3 class="font-black text-gray-800 mb-4 flex items-center gap-2 text-[10px] uppercase tracking-widest">
+                            <i class="fas fa-truck text-green-600"></i> Delivery & Finance Performance
+                        </h3>
+                        <div class="flex flex-col md:flex-row gap-4 items-end">
+                            <div class="w-full">
+                                <label class="text-[10px] text-gray-400 font-black uppercase tracking-tighter">FROM DATE (COMPLETION)</label>
+                                <input type="date" id="delReportStart" class="w-full border p-3 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                            <div class="w-full">
+                                <label class="text-[10px] text-gray-400 font-black uppercase tracking-tighter">TO DATE (COMPLETION)</label>
+                                <input type="date" id="delReportEnd" class="w-full border p-3 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                            <button onclick="generateDeliveryPartnerReport()" class="w-full md:w-auto bg-slate-900 hover:bg-black text-white px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest h-[52px] transition shadow-lg">
+                                Generate
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="reportContainer" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-h-[300px]">
+                        <div class="p-4 border-b bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div class="flex items-center gap-3">
+                                <span id="reportTitle" class="font-black text-gray-700 text-xs uppercase tracking-widest">Select a report type above</span>
+                                <span id="reportMeta" class="badge badge-active hidden-force"></span>
+                            </div>
+                            <div id="reportActions" class="flex gap-2 hidden-force">
+                                <button onclick="printReport()" class="flex items-center gap-2 bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 font-black py-2 px-4 rounded-lg transition shadow-sm text-[10px] uppercase">
+                                    <i class="fas fa-print"></i> Print
+                                </button>
+                                <button onclick="exportReportToExcel()" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-black py-2 px-4 rounded-lg transition shadow-lg text-[10px] uppercase">
+                                    <i class="fas fa-file-excel"></i> Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-sm">
+                                <thead id="reportHead" class="border-b bg-gray-50 font-black text-[10px] uppercase text-gray-500 tracking-wider"></thead>
+                                <tbody id="reportBody" class="divide-y divide-gray-100">
+                                    <tr><td class="p-12 text-center text-gray-400 font-medium">Select a category above to load data insights</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. BUSINESS INTEL TAB -->
+                <div id="tab-intel" class="view-content hidden-force">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
+                        
+                        <!-- FUTURE DEMAND -->
+                        <div class="col-span-1 lg:col-span-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 shadow-xl text-white">
+                            <h3 class="font-black text-sm uppercase tracking-[0.2em] mb-1 flex items-center">
+                                <i class="fas fa-calendar-alt mr-2"></i> Future Order Pipeline
+                            </h3>
+                            <p class="text-[10px] text-indigo-100 mb-4 font-bold opacity-80 uppercase">Demand forecast for upcoming production planning</p>
+                            <div class="table-responsive bg-white/10 rounded-xl backdrop-blur-md overflow-hidden border border-white/10">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="bg-black/20 text-indigo-100 text-[10px] font-black uppercase tracking-widest sticky top-0">
+                                        <tr><th class="p-3">Due Date</th><th class="p-3">Variety</th><th class="p-3">Customer</th><th class="p-3 text-right">Total Boxes</th></tr>
+                                    </thead>
+                                    <tbody id="intelFutureDemand" class="divide-y divide-white/5 font-medium">
+                                        <tr><td colspan="4" class="p-6 text-center text-indigo-200">Analyzing pipeline...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Party Variance (MoM) -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                            <div class="p-4 border-b bg-gray-50/50 flex justify-between items-center">
+                                <h3 class="font-black text-[10px] text-slate-500 uppercase tracking-widest"><i class="fas fa-users-cog mr-2 text-indigo-500"></i>Party Variance (MoM)</h3>
+                                <span class="text-[8px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-black uppercase">Current vs Last</span>
+                            </div>
+                            <div class="table-responsive flex-1 overflow-y-auto max-h-[350px]">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-wider sticky top-0">
+                                        <tr><th class="p-3">Client Firm</th><th class="p-3">Prev</th><th class="p-3">Current</th><th class="p-3">Variance</th></tr>
+                                    </thead>
+                                    <tbody id="intelPartyVariance" class="divide-y divide-gray-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Seed Usage Trends -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                            <div class="p-4 border-b bg-gray-50/50">
+                                <h3 class="font-black text-[10px] text-slate-500 uppercase tracking-widest"><i class="fas fa-seedling mr-2 text-green-500"></i>Seed Trial Velocity</h3>
+                            </div>
+                            <div class="table-responsive flex-1 overflow-y-auto max-h-[350px]">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-wider sticky top-0">
+                                        <tr><th class="p-3">Variety Name</th><th class="p-3">Tests Run</th><th class="p-3">Status</th></tr>
+                                    </thead>
+                                    <tbody id="intelSeedTrends" class="divide-y divide-gray-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Market Geography & Shortfall Audit (Stacking Layout for Tablet) -->
+                        <div class="col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                <h3 class="font-black text-[10px] text-slate-500 uppercase tracking-widest mb-4"><i class="fas fa-exclamation-triangle mr-2 text-orange-500"></i>Shortfall Frequency Audit</h3>
+                                <div id="intelShortfallAudit" class="space-y-3"></div>
+                            </div>
+                            <div class="bg-slate-900 rounded-2xl p-5 shadow-xl text-white">
+                                <h3 class="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-4"><i class="fas fa-map-marker-alt mr-2 text-red-500"></i>Market Density</h3>
+                                <div id="intelGeography" class="flex flex-wrap gap-2"></div>
+                                <hr class="my-4 border-white/5">
+                                <h3 class="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-3">AI Growth Recommendations</h3>
+                                <div id="intelForecast" class="space-y-2 text-[10px] font-bold"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. HOLIDAY MANAGEMENT -->
+                <div id="tab-holidays" class="view-content hidden-force animate-fadeIn">
+                    <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                        <h2 class="text-xl font-black text-gray-800 mb-1">Holiday Management</h2>
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-tight mb-6">Define farm closing days (Sundays closed by default)</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                            <div>
+                                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Holiday Date</label>
+                                <input type="date" id="newHolDate" class="w-full border border-gray-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 transition-all">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Occasion Name</label>
+                                <input type="text" id="newHolName" class="w-full border border-gray-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 transition-all" placeholder="e.g. Christmas Day">
+                            </div>
+                            <div class="flex items-end">
+                                <button onclick="addHoliday()" class="w-full bg-slate-900 hover:bg-black text-white px-6 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition shadow-lg">
+                                    <i class="fas fa-plus mr-2"></i> Add Holiday
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b bg-gray-50 font-black text-[10px] uppercase text-slate-500 tracking-widest">Upcoming Farm Holidays</div>
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-sm">
+                                <thead class="border-b bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                                    <tr><th class="p-4">Date</th><th class="p-4">Occasion</th><th class="p-4 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="holidaysList" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. ORDERS -->
+                <div id="tab-orders" class="view-content hidden-force animate-fadeIn">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row gap-3">
+                        <div class="flex-1 relative">
+                            <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                            <input type="text" id="orderSearchInput" class="w-full pl-12 pr-4 py-3 border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-green-500 transition-shadow text-sm" placeholder="Search orders, customers, logistics, status...">
+                        </div>
+                        <div class="grid grid-cols-2 md:flex gap-2">
+                            <select id="orderStatusInput" class="border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-xs font-black uppercase tracking-tight">
+                                <option value="ALL">All Orders</option>
+                                <option value="PLACED">Placed</option>
+                                <option value="ACCEPTED">Accepted</option>
+                                <option value="PREPARING">Preparing</option>
+                                <option value="READY_FOR_PICKUP">Ready For Pickup</option>
+                                <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+                                <option value="DELIVERED">Delivered</option>
+                                <option value="CANCELLED">Cancelled</option>
+                                <option value="SHORTFALL">Shortfall</option>
+                            </select>
+                            <input type="date" id="orderDateInput" class="border border-gray-100 bg-gray-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-xs font-bold">
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-gray-50/80 font-black text-[10px] uppercase text-gray-500 tracking-widest border-b border-gray-100">
+                                    <tr>
+                                        <th class="px-4 py-4">Schedules</th>
+                                        <th class="px-4 py-4 text-emerald-700">Completed</th>
+                                        <th class="px-4 py-4">Order ID</th>
+                                        <th class="px-4 py-4">Customer Firm</th>
+                                        <th class="px-4 py-4">Logistics</th>
+                                        <th class="px-4 py-4">Qty</th>
+                                        <th class="px-4 py-4">Status</th>
+                                        <th class="px-4 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ordersTableBody" class="divide-y divide-gray-100 font-medium">
+                                    <tr><td colspan="8" class="p-12 text-center text-gray-400">Loading live order stream...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- PAGINATION -->
+                    <div id="ordersPagination" class="flex justify-between items-center mt-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hidden-force">
+                        <span id="pageInfo" class="text-xs font-black text-slate-500 uppercase tracking-widest">Page 1 of 1</span>
+                        <div class="flex gap-2">
+                            <button onclick="changeOrderPage(-1)" id="btnPrevOrder" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-black uppercase tracking-widest transition disabled:opacity-50">Prev</button>
+                            <button onclick="changeOrderPage(1)" id="btnNextOrder" class="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition shadow-md disabled:opacity-50">Next</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. PRODUCERS -->
+                <div id="tab-producers" class="view-content hidden-force">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b bg-gray-50 font-black text-[10px] uppercase text-slate-500 tracking-widest">Authorized Production Units</div>
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b">
+                                    <tr><th class="px-4 py-4">Name</th><th class="px-4 py-4">Email Address</th><th class="px-4 py-4">Specialty</th><th class="px-4 py-4">Status</th><th class="px-4 py-4 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="producersTableBody" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. FARMERS -->
+                <div id="tab-farmers" class="view-content hidden-force">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b bg-gray-50 font-black text-[10px] uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                            <i class="fas fa-tractor text-amber-500"></i> Microgreens Growers
+                        </div>
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b">
+                                    <tr><th class="px-4 py-4">Grower Name</th><th class="px-4 py-4">Email Address</th><th class="px-4 py-4">Mobile</th><th class="px-4 py-4">Status</th><th class="px-4 py-4 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="farmersTableBody" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. STATIONERY -->
+                <div id="tab-stationery" class="view-content hidden-force">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b bg-gray-50 font-black text-[10px] uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                            <i class="fas fa-pencil-ruler text-blue-500"></i> Support & Stationery Partners
+                        </div>
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b">
+                                    <tr><th class="px-4 py-4">Company</th><th class="px-4 py-4">Email</th><th class="px-4 py-4">Type</th><th class="px-4 py-4">Status</th><th class="px-4 py-4 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="stationeryTableBody" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 9. DELIVERY -->
+                <div id="tab-delivery" class="view-content hidden-force">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b bg-gray-50 font-black text-[10px] uppercase text-slate-500 tracking-widest">Logistics Fleet Partners</div>
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b">
+                                    <tr><th class="px-4 py-4">Driver / Firm</th><th class="px-4 py-4">Email</th><th class="px-4 py-4">Phone</th><th class="px-4 py-4">Status</th><th class="px-4 py-4 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="deliveryTableBody" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 10. CUSTOMERS -->
+                <div id="tab-customers" class="view-content hidden-force">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                            <input type="text" id="customerSearchInput" class="w-full pl-12 pr-4 py-3 border border-gray-100 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="Filter customer database by name, phone or email...">
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b">
+                                    <tr><th class="px-4 py-4">Joined</th><th class="px-4 py-4">Firm Representative</th><th class="px-4 py-4">Firm Name</th><th class="px-4 py-4">Contact</th><th class="px-4 py-4">Shipping Address</th><th class="px-4 py-4 text-right">KYC</th></tr>
+                                </thead>
+                                <tbody id="customersTableBody" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 11. MAINTENANCE -->
+                <div id="tab-maintenance" class="view-content hidden-force">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4">
+                        <h2 class="text-xl font-black text-gray-800 mb-1">Maintenance Audit</h2>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Reporting loop between farmers and production leads</p>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b">
+                                    <tr><th class="p-4">Reported</th><th class="p-4">Issue details</th><th class="p-4">Farmer</th><th class="p-4">Action Loop</th><th class="p-4">Status</th><th class="p-4 text-right">Admin</th></tr>
+                                </thead>
+                                <tbody id="maintenanceTableBody" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 12. SEED LAB -->
+                <div id="tab-seedlab" class="view-content hidden-force">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4">
+                        <h2 class="text-xl font-black text-gray-800 mb-1">Seed Trial Analytics</h2>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Quality control germination tests for incoming seed stock</p>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-widest border-b">
+                                    <tr><th class="p-4">Date</th><th class="p-4">Variety</th><th class="p-4">Vendor</th><th class="p-4">Rate (%)</th><th class="p-4">Result</th><th class="p-4 text-right">Tester</th></tr>
+                                </thead>
+                                <tbody id="seedLabTableBody" class="divide-y divide-gray-100 font-bold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed top-6 right-6 z-[70] transform translate-x-full transition-transform duration-300">
+        <div class="bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-700">
+            <div class="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-400"><i class="fas fa-check-circle"></i></div>
+            <span id="toastMsg" class="font-bold text-sm tracking-tight">Operation Successful</span>
+        </div>
+    </div>
+
+    <!-- FIREBASE MODULE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, onValue, update, push, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyCtR2jdbu-SZ-7obmg88fPksJnNxk9BnqQ", authDomain: "oligo-store.firebaseapp.com", projectId: "oligo-store", storageBucket: "oligo-store.firebasestorage.app", messagingSenderId: "891788554016", appId: "1:891788554016:web:206c7da0a562fb7b1bf145" };
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getDatabase(app);
+        } catch(e) { console.error("Firebase Init Error:", e); }
+
+        let customersData = null, ordersData = null, deliveryData = null, producersData = null;
+        let farmersData = null, stationeryData = null, walletData = null, maintenanceData = null, seedData = null;
+        let holidaysData = {}; // Store holidays
+        let activeBatchesCount = 0, pendingSowingCount = 0;
+        let currentTab = 'stats';
+        
+        // Orders Pagination State
+        let currentOrderPage = 1;
+        const ordersPerPage = 50;
+
+        // HELPER: GET COMPLETED DATE
+        const getCompletionDateObj = (orderData) => {
+            if (orderData.deliveredAt) return new Date(orderData.deliveredAt);
+            if (orderData.status === 'DELIVERED') return orderData.updatedAt ? new Date(orderData.updatedAt) : new Date(orderData.createdAt);
+            if ((orderData.status === 'CANCELLED' || orderData.status === 'SHORTFALL') && orderData.updatedAt) return new Date(orderData.updatedAt);
+            return null;
+        };
+
+        // UI HELPERS
+        window.showToast = (msg) => {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            t.classList.remove('translate-x-full');
+            setTimeout(() => t.classList.add('translate-x-full'), 3000);
+        };
+
+        window.toggleSidebar = () => {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        };
+
+        window.printReport = () => window.print();
+        window.exportReportToExcel = () => {
+            const table = document.querySelector('#reportContainer table');
+            if(!table) return window.showToast("No report data to export");
+            const html = `
+                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                <head><meta charset="utf-8"></head>
+                <body>${table.outerHTML}</body>
+                </html>`;
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `oligo_report_${new Date().toISOString().slice(0,10)}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.showToast("Report downloaded");
+        };
+
+        // --- HOLIDAY LOGIC ---
+        window.renderHolidays = () => {
+            const list = document.getElementById('holidaysList');
+            list.innerHTML = '';
+            
+            if(Object.keys(holidaysData).length === 0) {
+                list.innerHTML = `<tr><td colspan="3" class="p-12 text-center text-gray-400 italic">No farm holidays scheduled in the system calendar.</td></tr>`;
+                return;
+            }
+
+            // Sort by date
+            Object.entries(holidaysData)
+                .sort((a,b) => new Date(a[1].date) - new Date(b[1].date))
+                .forEach(([id, h]) => {
+                    const formattedDate = new Date(h.date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+                    list.innerHTML += `
+                    <tr class="hover:bg-gray-50 border-b">
+                        <td class="p-4 font-black text-gray-800">${formattedDate}</td>
+                        <td class="p-4 text-gray-600">${h.name}</td>
+                        <td class="p-4 text-right">
+                            <button onclick="window.deleteHoliday('${id}')" class="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded-lg text-[10px] font-black uppercase transition-all">Remove</button>
+                        </td>
+                    </tr>`;
+                });
+        };
+
+        window.addHoliday = () => {
+            const date = document.getElementById('newHolDate').value;
+            const name = document.getElementById('newHolName').value.trim();
+            
+            if(!date || !name) return alert("Holiday parameters missing. Entry rejected.");
+            
+            push(ref(db, 'settings/holidays'), { date, name }).then(() => {
+                document.getElementById('newHolDate').value = "";
+                document.getElementById('newHolName').value = "";
+                window.showToast("Farm Holiday Logged");
+            });
+        };
+
+        window.deleteHoliday = (id) => {
+            if(confirm("Confirm removal of this farm holiday?")) {
+                remove(ref(db, `settings/holidays/${id}`)).then(() => window.showToast("Holiday Removed"));
+            }
+        };
+
+        // RENDERERS
+        const renderDelivery = () => {
+            const tbody = document.getElementById('deliveryTableBody');
+            if (deliveryData === null) return;
+            tbody.innerHTML = '';
+            const list = Object.entries(deliveryData);
+            if(list.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">No fleet partners in database</td></tr>`; return; }
+            list.forEach(([uid, d]) => {
+                const btn = d.approved 
+                    ? `<button onclick="window.toggleApproval('deliveryPartners','${uid}',true)" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-[10px] font-black uppercase transition">REVOKE</button>`
+                    : `<button onclick="window.toggleApproval('deliveryPartners','${uid}',false)" class="text-green-600 hover:bg-green-50 px-3 py-1 rounded-lg text-[10px] font-black uppercase transition">APPROVE</button>`;
+                tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-4 py-4 font-bold text-gray-800">${d.name || 'Unknown'}</td><td class="px-4 py-4 text-xs text-gray-500">${d.email || '-'}</td><td class="px-4 py-4 text-xs text-gray-500">${d.phone || '-'}</td><td class="px-4 py-4"><span class="badge ${d.approved?'badge-active':'badge-pending'} shadow-sm">${d.approved?'Verified':'Pending Review'}</span></td><td class="px-4 py-4 text-right">${btn}</td></tr>`;
+            });
+        };
+
+        const renderProducers = () => {
+            const tbody = document.getElementById('producersTableBody');
+            if (producersData === null) return;
+            tbody.innerHTML = '';
+            const list = Object.entries(producersData);
+            if(list.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400">No production units registered</td></tr>`; return; }
+            list.forEach(([uid, p]) => {
+                const btn = p.approved 
+                    ? `<button onclick="window.toggleApproval('Production','${uid}',true)" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-[10px] font-black transition">REVOKE</button>`
+                    : `<button onclick="window.toggleApproval('Production','${uid}',false)" class="text-green-600 hover:bg-green-50 px-3 py-1 rounded-lg text-[10px] font-black transition">APPROVE</button>`;
+                tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-4 py-4 font-bold text-gray-800">${p.name || 'Unknown'}</td><td class="px-4 py-4 text-xs text-gray-500">${p.email || '-'}</td><td class="px-4 py-4 text-[10px] font-black uppercase text-slate-500 tracking-tighter">${p.cuisine || 'Core Microgreens'}</td><td class="px-4 py-4"><span class="badge ${p.approved?'badge-active':'badge-pending'}">${p.approved?'Authorized':'Unauthorized'}</span></td><td class="px-4 py-4 text-right">${btn}</td></tr>`;
+            });
+        };
+
+        const renderOrders = () => {
+            const tbody = document.getElementById('ordersTableBody');
+            const paginationDiv = document.getElementById('ordersPagination');
+            const pageInfo = document.getElementById('pageInfo');
+            const btnPrev = document.getElementById('btnPrevOrder');
+            const btnNext = document.getElementById('btnNextOrder');
+
+            if (ordersData === null) return;
+            tbody.innerHTML = '';
+            
+            const search = document.getElementById('orderSearchInput').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('orderStatusInput').value;
+            const filterDate = document.getElementById('orderDateInput').value;
+            
+            const list = Object.entries(ordersData).sort((a,b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
+            
+            // 1. FILTER
+            const filteredList = list.filter(([id, o]) => {
+                const cName = (customersData && customersData[o.customerUid] ? customersData[o.customerUid].name : (o.customerName || 'Unknown'));
+                const firmName = o.firmName || (customersData && customersData[o.customerUid] ? customersData[o.customerUid].firmName : '-');
+                const oStatus = (o.status || '');
+                
+                let dName = 'Unassigned';
+                if(o.deliveryUid && deliveryData && deliveryData[o.deliveryUid]) { dName = deliveryData[o.deliveryUid].name; }
+                else if (o.deliveryName) { dName = o.deliveryName; }
+                else if (o.deliveryPartnerName) { dName = o.deliveryPartnerName; }
+                else if (o.acceptedBy && deliveryData && deliveryData[o.acceptedBy]) { dName = deliveryData[o.acceptedBy].name; }
+                
+                const completionDateObj = getCompletionDateObj(o);
+                let completionDateISO = '';
+                if (completionDateObj) completionDateISO = completionDateObj.toISOString().split('T')[0];
+
+                let visible = true;
+                if(search && !id.toLowerCase().includes(search) && !cName.toLowerCase().includes(search) && !dName.toLowerCase().includes(search) && !firmName.toLowerCase().includes(search) && !oStatus.toLowerCase().includes(search)) visible = false;
+                if(statusFilter !== 'ALL' && o.status !== statusFilter) visible = false;
+                if(filterDate && completionDateISO !== filterDate) visible = false;
+                
+                // Hide Future Orders (Pipeline) except Today
+                if (o.status === 'PLACED') {
+                    const targetDate = o.requestedDate ? new Date(o.requestedDate) : new Date(o.createdAt);
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const targetComp = new Date(targetDate); targetComp.setHours(0,0,0,0);
+                    if (targetComp.getTime() > today.getTime()) visible = false;
+                }
+                
+                return visible;
+            });
+
+            if(filteredList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-12 text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest">No order logs matching the search criteria</td></tr>`;
+                paginationDiv.classList.add('hidden-force');
+                return;
+            }
+
+            // 2. PAGINATE
+            const totalItems = filteredList.length;
+            const totalPages = Math.ceil(totalItems / ordersPerPage);
+            
+            if (currentOrderPage > totalPages) currentOrderPage = totalPages;
+            if (currentOrderPage < 1) currentOrderPage = 1;
+
+            const startIndex = (currentOrderPage - 1) * ordersPerPage;
+            const endIndex = startIndex + ordersPerPage;
+            const itemsToShow = filteredList.slice(startIndex, endIndex);
+
+            // 3. RENDER
+            itemsToShow.forEach(([id, o]) => {
+                const cName = (customersData && customersData[o.customerUid] ? customersData[o.customerUid].name : (o.customerName || 'Unknown'));
+                const firmName = o.firmName || (customersData && customersData[o.customerUid] ? customersData[o.customerUid].firmName : '-');
+                
+                let dName = 'Unassigned';
+                if(o.deliveryUid && deliveryData && deliveryData[o.deliveryUid]) { dName = deliveryData[o.deliveryUid].name; }
+                else if (o.deliveryName) { dName = o.deliveryName; }
+                else if (o.deliveryPartnerName) { dName = o.deliveryPartnerName; }
+                else if (o.acceptedBy && deliveryData && deliveryData[o.acceptedBy]) { dName = deliveryData[o.acceptedBy].name; }
+                
+                const createdAtDate = new Date(o.createdAt);
+                const orderDateStr = `${createdAtDate.toLocaleDateString('en-GB')} ${createdAtDate.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})}`;
+                const targetDate = o.requestedDate ? new Date(o.requestedDate) : new Date(o.createdAt);
+                const today = new Date(); today.setHours(0,0,0,0);
+                const targetComp = new Date(targetDate); targetComp.setHours(0,0,0,0);
+
+                let scheduleBadge = '';
+                if (o.status === 'PLACED') {
+                    if (targetComp.getTime() > today.getTime()) {
+                        scheduleBadge = `<div class="mt-1 inline-flex items-center px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 text-[9px] font-black uppercase">Post-Dated: ${targetDate.toLocaleDateString('en-GB')}</div>`;
+                    } else if (targetComp.getTime() < today.getTime()) {
+                        scheduleBadge = `<div class="mt-1 inline-flex items-center px-2 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 text-[9px] font-black uppercase animate-pulse">Lapsed / Overdue</div>`;
+                    } else {
+                        scheduleBadge = `<div class="mt-1 inline-flex items-center px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase">Due Target Today</div>`;
+                    }
+                }
+
+                const completionDateObj = getCompletionDateObj(o);
+                let completionDateStr = '<span class="text-[9px] text-orange-300 font-black uppercase">Pending Log</span>';
+
+                if (completionDateObj) {
+                    const datePart = completionDateObj.toLocaleDateString('en-GB');
+                    const timePart = completionDateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                    completionDateStr = `<span class="text-[11px]">${datePart}</span> <br><span class="text-[9px] text-gray-400 font-black font-mono tracking-tighter">${timePart}</span>`;
+                }
+
+                let statusClass = 'badge-pending';
+                if(o.status === 'DELIVERED') statusClass = 'badge-delivered';
+                if(o.status === 'CANCELLED') statusClass = 'badge-cancelled';
+                if(o.status === 'SHORTFALL') statusClass = 'badge-shortfall';
+                
+                let actionHtml = '-';
+                if (o.status !== 'CANCELLED' && o.status !== 'DELIVERED' && o.status !== 'SHORTFALL') {
+                    actionHtml = `<div class="flex gap-2 justify-end"><button onclick="window.modifyOrderStatus('${id}', 'CANCELLED')" title="Cancel Order" class="text-red-600 hover:bg-red-50 p-2 rounded-lg transition"><i class="fas fa-ban"></i></button><button onclick="window.modifyOrderStatus('${id}', 'SHORTFALL')" title="Mark Shortfall" class="text-orange-600 hover:bg-orange-50 p-2 rounded-lg transition"><i class="fas fa-exclamation-triangle"></i></button></div>`;
+                }
+                
+                tbody.innerHTML += `
+                <tr class="hover:bg-gray-50/50 border-b">
+                    <td class="px-4 py-4">
+                        <div class="text-[10px] text-gray-400 font-bold">In: ${orderDateStr}</div>
+                        ${scheduleBadge}
+                    </td>
+                    <td class="px-4 py-4 font-bold text-emerald-700 bg-green-50/30">${completionDateStr}</td>
+                    <td class="px-4 py-4 font-mono text-[10px] text-slate-400">#${id.substring(0,8).toUpperCase()}</td>
+                    <td class="px-4 py-4">
+                        <p class="text-[11px] font-black text-gray-800 uppercase tracking-tighter">${cName}</p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">${firmName}</p>
+                    </td>
+                    <td class="px-4 py-4 text-[10px] font-black uppercase text-gray-600">${dName}</td>
+                    <td class="px-4 py-4 text-xs font-black text-gray-800">${o.totalAmount}</td>
+                    <td class="px-4 py-4"><span class="badge ${statusClass} shadow-sm border border-black/5">${o.status}</span></td>
+                    <td class="px-4 py-4">${actionHtml}</td>
+                </tr>`;
+            });
+
+            // 4. UPDATE CONTROLS
+            paginationDiv.classList.remove('hidden-force');
+            pageInfo.innerText = `View: ${startIndex + 1}-${Math.min(endIndex, totalItems)} / Total: ${totalItems}`;
+            btnPrev.disabled = currentOrderPage === 1;
+            btnNext.disabled = currentOrderPage === totalPages;
+        };
+
+        window.changeOrderPage = (direction) => {
+            currentOrderPage += direction;
+            renderOrders();
+            document.getElementById('mainScroll').scrollTo(0,0);
+        };
+
+        const renderFarmers = () => {
+            const tbody = document.getElementById('farmersTableBody');
+            if (farmersData === null) return;
+            tbody.innerHTML = '';
+            const list = Object.entries(farmersData);
+            if(list.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400 font-bold uppercase text-xs">No microgreen growers registered</td></tr>`; return; }
+            list.forEach(([uid, f]) => {
+                const btn = f.approved 
+                    ? `<button onclick="window.toggleApproval('farmers','${uid}',true)" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-[10px] font-black transition">REVOKE</button>`
+                    : `<button onclick="window.toggleApproval('farmers','${uid}',false)" class="text-green-600 hover:bg-green-50 px-3 py-1 rounded-lg text-[10px] font-black transition">APPROVE</button>`;
+                tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-4 py-4 font-bold text-gray-800">${f.name || 'Unknown'}</td><td class="px-4 py-4 text-xs text-gray-500">${f.email || '-'}</td><td class="px-4 py-4 text-xs text-gray-500">${f.phone || '-'}</td><td class="px-4 py-4"><span class="badge ${f.approved?'badge-active':'badge-pending'}">${f.approved?'Verified':'Pending'}</span></td><td class="px-4 py-4 text-right">${btn}</td></tr>`;
+            });
+        };
+
+        const renderStationery = () => {
+            const tbody = document.getElementById('stationeryTableBody');
+            if (stationeryData === null) return;
+            tbody.innerHTML = '';
+            const list = Object.entries(stationeryData);
+            if(list.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400 font-bold text-xs uppercase">No stationery suppliers on file</td></tr>`; return; }
+            list.forEach(([uid, s]) => {
+                const btn = s.approved 
+                    ? `<button onclick="window.toggleApproval('stationeryPartners','${uid}',true)" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-[10px] font-black transition">REVOKE</button>`
+                    : `<button onclick="window.toggleApproval('stationeryPartners','${uid}',false)" class="text-green-600 hover:bg-green-50 px-3 py-1 rounded-lg text-[10px] font-black transition">APPROVE</button>`;
+                tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-4 py-4 font-bold text-gray-800">${s.name || 'Unknown'}</td><td class="px-4 py-4 text-xs text-gray-500">${s.email || '-'}</td><td class="px-4 py-4 text-[10px] font-black uppercase text-slate-500">${s.type || 'Consumables'}</td><td class="px-4 py-4"><span class="badge ${s.approved?'badge-active':'badge-pending'}">${s.approved?'Active':'Paused'}</span></td><td class="px-4 py-4 text-right">${btn}</td></tr>`;
+            });
+        };
+
+        const renderCustomers = () => {
+            const tbody = document.getElementById('customersTableBody');
+            if (customersData === null) return;
+            tbody.innerHTML = '';
+            const search = document.getElementById('customerSearchInput').value.toLowerCase();
+            let count = 0;
+            Object.values(customersData).forEach(c => {
+                const firm = c.firmName || '-';
+                if((c.name+c.phone+c.email+firm).toLowerCase().includes(search)) {
+                    count++;
+                    const docLink = c.documentUrl ? `<a href="${c.documentUrl}" target="_blank" class="flex items-center justify-end text-blue-600 hover:text-blue-800 font-black text-[10px] uppercase tracking-tighter transition"><i class="fas fa-file-pdf mr-1 text-red-500"></i> VIEW PDF</a>` : `<span class="text-[10px] text-gray-400 font-bold uppercase text-right block">No Doc</span>`;
+                    const joinedDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : '-';
+                    tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="px-4 py-4 text-[10px] font-bold text-gray-500">${joinedDate}</td><td class="px-4 py-4 font-bold text-gray-800">${c.name || 'Unknown'}</td><td class="px-4 py-4 text-xs font-black text-gray-700 uppercase tracking-tighter">${firm}</td><td class="px-4 py-4"><p class="text-[10px] font-bold text-gray-500">${c.email || '-'}</p><p class="text-[10px] font-bold text-gray-500">${c.phone || '-'}</p></td><td class="px-4 py-4 text-[10px] text-gray-400 font-medium truncate max-w-xs">${c.address || '-'}</td><td class="px-4 py-4 text-right">${docLink}</td></tr>`;
+                }
+            });
+            if(count === 0) tbody.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest">No customer accounts matching filter</td></tr>`;
+        };
+
+        const renderMaintenance = () => {
+            const tbody = document.getElementById('maintenanceTableBody');
+            if (maintenanceData === null) return;
+            tbody.innerHTML = '';
+            
+            const list = Object.entries(maintenanceData).sort((a,b) => b[1].timestamp - a[1].timestamp);
+
+            if(list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest italic">All systems operational. No open maintenance tickets.</td></tr>`;
+                return;
+            }
+
+            list.forEach(([key, m]) => {
+                const isResolved = m.status === 'Resolved';
+                const statusBadge = isResolved 
+                    ? `<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">RESOLVED</span>` 
+                    : `<span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">OPEN LOG</span>`;
+                const isOverdue = !isResolved && (Date.now() - m.timestamp > 172800000);
+                const overdueTag = isOverdue ? `<br><span class="text-[8px] text-red-600 font-black uppercase animate-pulse tracking-tight">Critical Delay > 48h</span>` : '';
+                const issueText = `<div class="max-w-xs"><span class="font-black text-gray-800 uppercase text-[11px] tracking-tight">${m.issueType}</span> <span class="text-gray-400 text-[9px] font-bold">#${m.category}</span><p class="text-[10px] text-gray-600 mt-1 font-bold leading-tight opacity-80">"${m.description}"</p></div>`;
+                const prodAction = m.actionTaken 
+                    ? `<div class="bg-blue-50 border border-blue-100 p-2 rounded-lg text-[10px] text-blue-800 font-bold">LATEST: ${m.actionTaken}</div>`
+                    : `<span class="text-[9px] text-gray-400 font-black uppercase italic tracking-tighter">Production Response Awaited...</span>`;
+                let adminHtml = '';
+                if(m.adminNote) adminHtml = `<div class="bg-purple-50 border border-purple-100 p-2 rounded-lg text-[10px] text-purple-800 mb-1 font-bold"><strong class="uppercase text-[8px]">HQ Note:</strong> ${m.adminNote}</div>`;
+                if (!isResolved) adminHtml += `<button onclick="window.addAdminNote('${key}')" class="text-[9px] font-black uppercase bg-white hover:bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 transition shadow-sm">Request Update</button>`;
+
+                tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b ${isOverdue ? 'bg-red-50/30' : ''}"><td class="p-4 text-[10px] text-gray-500 whitespace-nowrap font-bold">${new Date(m.timestamp).toLocaleDateString()} <br>${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td><td class="p-4">${issueText}</td><td class="p-4 text-[11px] font-black text-slate-700 uppercase tracking-tighter">${m.reportedBy?.name || 'Farmer Log'}</td><td class="p-4 w-64">${prodAction}</td><td class="p-4 text-center">${statusBadge} ${overdueTag}</td><td class="p-4 text-right">${adminHtml}</td></tr>`;
+            });
+        };
+
+        window.addAdminNote = (key) => {
+            const note = prompt("Enter directive/query for Production Lead:");
+            if(note) update(ref(db, `maintenance_reports/${key}`), { adminNote: note }).then(() => window.showToast("Admin Directive Logged"));
+        };
+
+        const renderSeedLab = () => {
+            const tbody = document.getElementById('seedLabTableBody');
+            if (seedData === null) return;
+            tbody.innerHTML = '';
+            const list = Object.values(seedData).sort((a,b) => b.timestamp - a.timestamp);
+            if(list.length === 0) { tbody.innerHTML = `<tr><td colspan="6" class="p-12 text-center text-gray-400 font-black text-[10px] uppercase tracking-widest">No quality trial results in active lab archives</td></tr>`; return; }
+            list.forEach(s => {
+                const isApproved = s.recommendation === 'Approved';
+                const resBadge = isApproved ? `<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[9px] font-black shadow-sm">APPROVED</span>` : (s.recommendation === 'Rejected' ? `<span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[9px] font-black shadow-sm">REJECTED</span>` : `<span class="text-gray-400 text-[10px] font-bold uppercase">Awaiting Decision</span>`);
+                const rate = s.metrics ? s.metrics.rate : 0;
+                const rateColor = rate > 80 ? 'text-green-600' : 'text-orange-500';
+                tbody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-4 text-[10px] text-gray-400 font-bold">${new Date(s.timestamp).toLocaleDateString()}</td><td class="p-4 font-black text-gray-800 text-xs uppercase tracking-tight">${s.variety}</td><td class="p-4 text-[10px] text-gray-500 font-black uppercase">${s.vendor}</td><td class="p-4 font-mono font-black text-xs ${rateColor}">${rate}% <span class="text-[9px] text-gray-400 font-bold">(${s.metrics?.germinated}/${s.metrics?.total})</span></td><td class="p-4 text-center">${resBadge}</td><td class="p-4 text-right text-[10px] text-slate-600 font-black uppercase tracking-tighter">${s.tester?.name || '-'}</td></tr>`;
+            });
+        };
+
+        // --- BUSINESS INTEL RENDERER (FULL RESPONSIVE) ---
+        const renderBusinessIntel = () => {
+            if (!ordersData || !customersData) return;
+
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+            const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+            // 1. Future Demand Forecast
+            const futureBody = document.getElementById('intelFutureDemand');
+            futureBody.innerHTML = '';
+            const futureData = {};
+            const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(23,59,59,999);
+
+            Object.values(ordersData).forEach(o => {
+                if(o.status === 'CANCELLED' || !o.requestedDate) return;
+                const rDate = new Date(o.requestedDate);
+                rDate.setHours(0,0,0,0);
+                const checkTomorrow = new Date(tomorrow); checkTomorrow.setHours(0,0,0,0);
+
+                if(rDate > checkTomorrow) {
+                    const dateStr = rDate.toLocaleDateString();
+                    const cName = customersData[o.customerUid] ? (customersData[o.customerUid].firmName || customersData[o.customerUid].name) : (o.customerName || 'Unknown');
+                    if (o.items) {
+                        const items = Array.isArray(o.items) ? o.items : Object.values(o.items);
+                        items.forEach(i => {
+                            const key = `${dateStr}_${i.name}_${o.customerUid || o.customerName}`;
+                            if(!futureData[key]) futureData[key] = { date: dateStr, item: i.name, customer: cName, qty: 0 };
+                            futureData[key].qty += parseInt(i.qty || i.quantity || 0);
+                        });
+                    }
+                }
+            });
+
+            const sortedFuture = Object.values(futureData).sort((a,b) => new Date(a.date) - new Date(b.date));
+            if(sortedFuture.length === 0) futureBody.innerHTML = `<tr><td colspan="4" class="p-12 text-center text-white/50 font-black uppercase text-[10px] tracking-widest">No scheduled order pipeline detected</td></tr>`;
+            else {
+                sortedFuture.forEach(f => {
+                    futureBody.innerHTML += `<tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+                        <td class="p-3 font-black text-indigo-200 tracking-tighter uppercase">${f.date}</td>
+                        <td class="p-3 font-bold text-white/90 text-[11px] uppercase">${f.item}</td>
+                        <td class="p-3 font-medium text-white/70 text-[10px] uppercase">${f.customer}</td>
+                        <td class="p-3 text-right font-black text-white text-base">${f.qty}</td>
+                    </tr>`;
+                });
+            }
+
+            // 2. Party Variance (MoM)
+            const partyStats = {};
+            Object.values(ordersData).forEach(o => {
+                if(o.status === 'CANCELLED') return;
+                const d = new Date(o.createdAt);
+                const isThisMonth = d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                const isLastMonth = d.getMonth() === lastMonth && d.getFullYear() === lastYear;
+                
+                if(!partyStats[o.customerUid]) partyStats[o.customerUid] = { this: 0, last: 0 };
+                if(isThisMonth) partyStats[o.customerUid].this++;
+                if(isLastMonth) partyStats[o.customerUid].last++;
+            });
+
+            const varianceBody = document.getElementById('intelPartyVariance');
+            varianceBody.innerHTML = '';
+            const sortedVariance = Object.entries(partyStats).sort((a,b) => b[1].this - a[1].this);
+            sortedVariance.forEach(([uid, stats]) => {
+                if (stats.this === 0 && stats.last === 0) return;
+                const name = customersData[uid] ? (customersData[uid].firmName || customersData[uid].name) : 'Unknown';
+                const diff = stats.this - stats.last;
+                const color = diff > 0 ? 'text-green-600' : (diff < 0 ? 'text-red-600' : 'text-gray-400');
+                const icon = diff > 0 ? '↑' : (diff < 0 ? '↓' : '-');
+                varianceBody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-black text-[11px] text-slate-700 uppercase tracking-tighter truncate max-w-[150px]">${name}</td><td class="p-3 font-bold text-slate-400">${stats.last}</td><td class="p-3 font-bold text-slate-800">${stats.this}</td><td class="p-3 font-black ${color}">${icon} ${Math.abs(diff)}</td></tr>`;
+            });
+
+            // 3. Seed Usage Trends
+            const seedTrendsBody = document.getElementById('intelSeedTrends');
+            seedTrendsBody.innerHTML = '';
+            if (seedData) {
+                const varieties = {};
+                Object.values(seedData).forEach(s => {
+                    varieties[s.variety] = (varieties[s.variety] || 0) + 1;
+                });
+                Object.entries(varieties).forEach(([name, count]) => {
+                    seedTrendsBody.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold text-slate-700 text-[11px] uppercase tracking-tighter">${name}</td><td class="p-3 font-mono font-black text-slate-800">${count} Tests</td><td class="p-3"><span class="text-[9px] px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-black uppercase tracking-widest shadow-sm">In Rotation</span></td></tr>`;
+                });
+            }
+
+            // 4. Shortfall Audit
+            const auditDiv = document.getElementById('intelShortfallAudit');
+            auditDiv.innerHTML = '';
+            const shortfalls = {};
+            Object.values(ordersData).forEach(o => {
+                if(o.status === 'SHORTFALL') {
+                    const reason = o.shortfallReason || 'Unspecified Logistics';
+                    shortfalls[reason] = (shortfalls[reason] || 0) + 1;
+                }
+            });
+            const shortfallEntries = Object.entries(shortfalls).sort((a,b) => b[1] - a[1]);
+            if (shortfallEntries.length === 0) auditDiv.innerHTML = `<div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center py-6">Zero shortfalls recorded to date</div>`;
+            else shortfallEntries.forEach(([reason, count]) => {
+                auditDiv.innerHTML += `<div class="flex items-center justify-between bg-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm"><span class="text-[11px] font-black text-orange-900 uppercase tracking-tighter leading-tight pr-4">${reason}</span><span class="bg-orange-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-lg">${count} Logs</span></div>`;
+            });
+
+            // 5. Market Geography
+            const geoDiv = document.getElementById('intelGeography');
+            geoDiv.innerHTML = '';
+            const locations = {};
+            Object.values(customersData).forEach(c => {
+                if(c.address) {
+                    const parts = c.address.split(',');
+                    const area = parts[parts.length - 2]?.trim() || parts[0]?.trim();
+                    if(area) locations[area] = (locations[area] || 0) + 1;
+                }
+            });
+            Object.entries(locations).sort((a,b) => b[1] - a[1]).forEach(([loc, count]) => {
+                geoDiv.innerHTML += `<span class="px-3 py-1.5 bg-white/10 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white shadow-inner">${loc} (${count})</span>`;
+            });
+
+            // 6. Demand Forecast
+            const forecastDiv = document.getElementById('intelForecast');
+            forecastDiv.innerHTML = '';
+            const prodDemands = {};
+            Object.values(ordersData).forEach(o => {
+                if(o.items) {
+                    const items = Array.isArray(o.items) ? o.items : Object.values(o.items);
+                    items.forEach(i => {
+                        const name = i.name || i.productName;
+                        prodDemands[name] = (prodDemands[name] || 0) + (parseInt(i.qty || i.quantity) || 1);
+                    });
+                }
+            });
+            const topDemand = Object.entries(prodDemands).sort((a,b) => b[1] - a[1]).slice(0, 3);
+            if (topDemand.length === 0) forecastDiv.innerHTML = `<p class="opacity-50 italic">Insufficient data for forecast...</p>`;
+            else topDemand.forEach(([name, qty]) => {
+                forecastDiv.innerHTML += `<div class="flex items-start gap-3 bg-white/5 p-3 rounded-xl border border-white/5"><div class="mt-1 w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]"></div><p class="text-white/80 leading-tight uppercase"><strong>${name}</strong> <br><span class="opacity-60">High momentum (Avg ${qty} boxes). Scaling suggested.</span></p></div>`;
+            });
+        };
+
+        window.switchTab = (tabName) => {
+            currentTab = tabName;
+            document.querySelectorAll('.view-content').forEach(el => el.classList.add('hidden-force'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden-force');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const navBtn = document.getElementById(`nav-${tabName}`);
+            if (navBtn) navBtn.classList.add('active');
+            
+            const titles = { 
+                'stats':'Dashboard Overview', 
+                'reports':'Advanced Reports', 
+                'intel': 'Business Intelligence & Forecasts',
+                'orders':'Orders Management', 
+                'producers':'Producers Management', 
+                'farmers': 'Farmers Management',
+                'stationery': 'Stationery Partners',
+                'delivery':'Delivery Partners', 
+                'customers':'Customer List',
+                'maintenance': 'Maintenance Logs & Audit',
+                'seedlab': 'Seed Lab Quality Reports',
+                'holidays': 'Holiday Management'
+            };
+            document.getElementById('pageTitle').innerText = titles[tabName];
+
+            if(tabName === 'delivery') renderDelivery();
+            if(tabName === 'orders') renderOrders();
+            if(tabName === 'producers') renderProducers();
+            if(tabName === 'farmers') renderFarmers();
+            if(tabName === 'stationery') renderStationery();
+            if(tabName === 'customers') renderCustomers();
+            if(tabName === 'maintenance') renderMaintenance();
+            if(tabName === 'seedlab') renderSeedLab();
+            if(tabName === 'intel') renderBusinessIntel();
+            if(tabName === 'stats') renderDashboardCharts();
+            if(tabName === 'holidays') renderHolidays();
+
+            if(window.innerWidth < 768) {
+                const sidebar = document.getElementById('sidebar');
+                if(!sidebar.classList.contains('-translate-x-full')) window.toggleSidebar();
+            }
+        };
+
+        // REPORTS
+        window.generateDeliveryPartnerReport = () => {
+            const sVal = document.getElementById('delReportStart').value;
+            const eVal = document.getElementById('delReportEnd').value;
+            if(!sVal || !eVal) return window.showToast('Please specify full reporting date range');
+            const start = new Date(sVal).setHours(0,0,0,0);
+            const end = new Date(eVal).setHours(23,59,59,999);
+            const titleEl = document.getElementById('reportTitle');
+            const metaEl = document.getElementById('reportMeta');
+            const headEl = document.getElementById('reportHead');
+            const bodyEl = document.getElementById('reportBody');
+            const actionsEl = document.getElementById('reportActions');
+            let stats = {}, totalDeliveries = 0;
+
+            if(ordersData) Object.values(ordersData).forEach(o => {
+                const compDateObj = getCompletionDateObj(o);
+                if (!compDateObj) return; 
+                const compTime = compDateObj.getTime();
+                if(o.status === 'DELIVERED' && o.deliveryUid && compTime >= start && compTime <= end) {
+                    if(!stats[o.deliveryUid]) stats[o.deliveryUid] = { name: deliveryData && deliveryData[o.deliveryUid] ? deliveryData[o.deliveryUid].name : 'Unknown', count: 0, boxes: 0, cashReceived: 0 };
+                    stats[o.deliveryUid].count++;
+                    stats[o.deliveryUid].boxes += parseFloat(o.totalAmount || 0);
+                    totalDeliveries++;
+                }
+            });
+
+            if(walletData) Object.entries(walletData).forEach(([partnerUid, transactions]) => {
+                if(!stats[partnerUid]) stats[partnerUid] = { name: deliveryData && deliveryData[partnerUid] ? deliveryData[partnerUid].name : 'Unknown', count: 0, boxes: 0, cashReceived: 0 };
+                Object.values(transactions).forEach(tx => { if(tx.createdAt >= start && tx.createdAt <= end && tx.type === 'RECEIVED') stats[partnerUid].cashReceived += parseFloat(tx.amount || 0); });
+            });
+
+            titleEl.innerText = `DELIVERY PARTNER PERFORMANCE (${sVal} to ${eVal})`;
+            headEl.innerHTML = `<tr><th class="px-4 py-4">Partner Name</th><th class="px-4 py-4 text-center">Deliveries</th><th class="px-4 py-4 text-right">Boxes</th><th class="px-4 py-4 text-right text-emerald-600">Cash Received</th><th class="px-4 py-4 w-32">Share %</th></tr>`;
+            let html = '';
+            const sortedStats = Object.values(stats).filter(s => s.count > 0 || s.cashReceived > 0).sort((a,b) => b.count - a.count);
+            if (sortedStats.length === 0) html = `<tr><td colspan="5" class="p-12 text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest">No verified transaction logs found for this period</td></tr>`;
+            else sortedStats.forEach(s => {
+                const pct = totalDeliveries > 0 ? Math.round((s.count/totalDeliveries)*100) : 0;
+                html += `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-4 font-black text-gray-800 uppercase tracking-tighter">${s.name}</td><td class="px-4 py-4 text-center font-bold">${s.count}</td><td class="px-4 py-4 text-right font-mono font-black">${s.boxes}</td><td class="px-4 py-4 text-right font-mono font-black text-emerald-600">₹ ${s.cashReceived.toLocaleString(undefined, {minimumFractionDigits: 2})}</td><td class="px-4 py-4"><div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden shadow-inner"><div class="bg-blue-600 h-full rounded-full transition-all duration-1000" style="width:${pct}%"></div></div></td></tr>`;
+            });
+            bodyEl.innerHTML = html;
+            metaEl.innerText = `Total Fulfillment: ${totalDeliveries}`;
+            metaEl.classList.remove('hidden-force');
+            actionsEl.classList.remove('hidden-force');
+        };
+
+        window.generateReport = (type) => {
+            const titleEl = document.getElementById('reportTitle');
+            const metaEl = document.getElementById('reportMeta');
+            const headEl = document.getElementById('reportHead');
+            const bodyEl = document.getElementById('reportBody');
+            const actionsEl = document.getElementById('reportActions');
+            metaEl.classList.add('hidden-force');
+            actionsEl.classList.add('hidden-force');
+            bodyEl.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-gray-400 font-black uppercase text-[10px] tracking-widest">Aggregating report data from live database...</td></tr>`;
+
+            const aggregatePeriod = (days) => {
+                const limit = new Date(); limit.setDate(limit.getDate() - days);
+                return Object.entries(ordersData || {}).filter(([_, o]) => { const d = getCompletionDateObj(o); return d && d >= limit && o.status !== 'CANCELLED'; });
+            };
+
+            const aggregateProducts = (isAsc) => {
+                let counts = {};
+                Object.values(ordersData || {}).forEach(o => { if (o.status !== 'CANCELLED' && o.items) { const items = Array.isArray(o.items) ? o.items : Object.values(o.items); items.forEach(i => { const n = i.name || i.productName || 'Unknown Variety'; const q = parseInt(i.qty || i.quantity || 1); counts[n] = (counts[n] || 0) + q; }); } });
+                return Object.entries(counts).sort((a, b) => isAsc ? a[1] - b[1] : b[1] - a[1]);
+            };
+
+            if (type === 'weekly' || type === 'monthly' || type === 'quarterly') {
+                let days = type === 'weekly' ? 7 : (type === 'monthly' ? 30 : 90);
+                let list = aggregatePeriod(days);
+                titleEl.innerText = `${type.toUpperCase()} FULFILLMENT (Last ${days} Days)`;
+                headEl.innerHTML = `<tr><th class="px-4 py-4">Completed</th><th class="px-4 py-4">ID</th><th class="px-4 py-4">Firm Name</th><th class="px-4 py-4 text-right">Volume</th></tr>`;
+                let html = '', total = 0;
+                list.sort((a,b) => getCompletionDateObj(b[1]) - getCompletionDateObj(a[1])).forEach(([id, o]) => {
+                    total += parseFloat(o.totalAmount || 0);
+                    const d = getCompletionDateObj(o).toLocaleDateString();
+                    html += `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-4 text-emerald-700 font-black tracking-tighter text-[11px] uppercase">${d}</td><td class="px-4 py-4 font-mono text-[10px] text-slate-400">#${id.substring(0,8).toUpperCase()}</td><td class="px-4 py-4 font-black uppercase text-[11px] tracking-tighter">${customersData && customersData[o.customerUid] ? (customersData[o.customerUid].firmName || customersData[o.customerUid].name) : 'Firm Unknown'}</td><td class="px-4 py-4 text-right font-black">${o.totalAmount}</td></tr>`;
+                });
+                bodyEl.innerHTML = html || `<tr><td colspan="4" class="p-12 text-center text-gray-400 font-bold uppercase text-[10px]">No finalized orders for this timeframe</td></tr>`;
+                metaEl.innerText = `Cumulative: ${total.toFixed(2)} Boxes`;
+                metaEl.classList.remove('hidden-force');
+                actionsEl.classList.remove('hidden-force');
+            } else if (type === 'cancelled' || type === 'shortfall') {
+                const target = type === 'cancelled' ? 'CANCELLED' : 'SHORTFALL';
+                const list = Object.entries(ordersData || {}).filter(([_, o]) => o.status === target);
+                titleEl.innerText = `${type.toUpperCase()} ORDER ARCHIVE`;
+                headEl.innerHTML = `<tr><th class="px-4 py-4">Logged Date</th><th class="px-4 py-4">Order ID</th><th class="px-4 py-4">Customer Account</th><th class="px-4 py-4 text-right">Failure Reason</th></tr>`;
+                let html = '';
+                list.forEach(([id, o]) => {
+                    const d = getCompletionDateObj(o) ? getCompletionDateObj(o).toLocaleDateString() : '-';
+                    html += `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-4 font-bold text-gray-500 text-[11px]">${d}</td><td class="px-4 py-4 font-mono text-[10px] text-slate-400">#${id.substring(0,8).toUpperCase()}</td><td class="px-4 py-4 font-black uppercase text-[11px] tracking-tighter">${customersData && customersData[o.customerUid] ? customersData[o.customerUid].name : 'Direct Order'}</td><td class="px-4 py-4 text-right text-red-600 font-black uppercase text-[10px] tracking-tight leading-tight">${o.cancelReason || o.shortfallReason || 'Unknown / Unrecorded'}</td></tr>`;
+                });
+                bodyEl.innerHTML = html || `<tr><td colspan="4" class="p-12 text-center text-gray-400 font-bold text-[10px] uppercase">All orders fulfilled. Archive is empty.</td></tr>`;
+                actionsEl.classList.remove('hidden-force');
+            } else if (type === 'best_selling' || type === 'least_selling') {
+                const isAsc = type === 'least_selling';
+                const list = aggregateProducts(isAsc);
+                titleEl.innerText = isAsc ? "LEAST POPULAR VARIETIES" : "MARKET FAVORITES (TOP SELLERS)";
+                headEl.innerHTML = `<tr><th class="px-4 py-4">Ranking</th><th class="px-4 py-4">Variety Name</th><th class="px-4 py-4 text-right">Volume Sold</th><th class="px-4 py-4 w-32">Market Velocity</th></tr>`;
+                let html = '';
+                const maxVal = list.length > 0 ? (isAsc ? list[list.length-1][1] : list[0][1]) : 1;
+                list.forEach(([name, count], index) => {
+                    const pct = Math.max(5, (count / maxVal) * 100);
+                    html += `<tr class="border-b hover:bg-gray-50"><td class="px-4 py-4 font-black text-slate-400 tracking-widest text-[11px]">#${index+1}</td><td class="px-4 py-4 font-black uppercase tracking-tighter text-slate-800">${name}</td><td class="px-4 py-4 text-right font-mono font-black">${count}</td><td class="px-4 py-4"><div class="w-full bg-gray-200 h-2 rounded-full shadow-inner"><div class="bg-green-600 h-full rounded-full transition-all duration-700" style="width:${pct}%"></div></div></td></tr>`;
+                });
+                bodyEl.innerHTML = html || `<tr><td colspan="4" class="p-12 text-center text-gray-400 font-bold text-[10px] uppercase">No product movement data available</td></tr>`;
+                actionsEl.classList.remove('hidden-force');
+            }
+        };
+
+        // ADMIN ACTIONS
+        window.modifyOrderStatus = (id, newStatus) => {
+            let updateData = { status: newStatus, updatedAt: serverTimestamp() };
+            if (newStatus === 'CANCELLED') {
+                const r = prompt("Final cancellation audit reason:"); if (r === null) return; updateData.cancelReason = r || 'HQ Discretion';
+            } else if (newStatus === 'SHORTFALL') {
+                const r = prompt("Describe shortfall logistics issue:"); if (r === null) return; updateData.shortfallReason = r || 'General Shortfall';
+            }
+            update(ref(db, `orders/${id}`), updateData).then(() => window.showToast(`Order status migrated to ${newStatus}`));
+        };
+
+        window.toggleApproval = (path, uid, currentStatus) => {
+            update(ref(db, `${path}/${uid}`), { approved: !currentStatus }).then(() => window.showToast(currentStatus ? 'Authorization Revoked' : 'Authorization Granted'));
+        };
+
+        document.getElementById('sendNotifBtn').addEventListener('click', () => {
+            const val = document.getElementById('notifInput').value;
+            if(val) push(ref(db, 'admin/notifications'), { message: val, createdAt: serverTimestamp() }).then(() => { document.getElementById('notifInput').value=''; window.showToast('System Broadcast Live'); });
+        });
+
+        const loginForm = document.getElementById('loginForm');
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            signInWithEmailAndPassword(auth, document.getElementById('adminEmail').value, document.getElementById('adminPass').value)
+                .catch(err => { document.getElementById('loginError').innerText = "Auth Error: " + err.message; document.getElementById('loginError').classList.remove('hidden'); });
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loginView').classList.add('hidden-force');
+                document.getElementById('dashboardView').classList.remove('hidden-force');
+                document.getElementById('adminEmailDisplay').innerText = user.email.split('@')[0];
+                
+                // Initialize Listeners
+                onValue(ref(db, 'customers'), s => { customersData = s.val() || {}; document.getElementById('connStatus').innerText = 'Online'; if(currentTab==='customers' || currentTab==='orders' || currentTab==='intel') switchTab(currentTab); });
+                onValue(ref(db, 'orders'), s => { ordersData = s.val() || {}; updateStats(); if(currentTab==='orders' || currentTab==='intel' || currentTab==='stats') switchTab(currentTab); });
+                onValue(ref(db, 'Production'), s => { producersData = s.val() || {}; updateStats(); if(currentTab==='producers') renderProducers(); });
+                onValue(ref(db, 'deliveryPartners'), s => { deliveryData = s.val() || {}; updateStats(); if(currentTab==='delivery') renderDelivery(); });
+                onValue(ref(db, 'farmers'), s => { farmersData = s.val() || {}; updateStats(); if(currentTab==='farmers') renderFarmers(); });
+                onValue(ref(db, 'stationeryPartners'), s => { stationeryData = s.val() || {}; updateStats(); if(currentTab==='stationery') renderStationery(); });
+                onValue(ref(db, 'partner_transactions'), s => { walletData = s.val() || {}; });
+                onValue(ref(db, 'maintenance_reports'), s => { maintenanceData = s.val() || {}; updateStats(); if(currentTab==='maintenance') renderMaintenance(); });
+                onValue(ref(db, 'seed_trials'), s => { seedData = s.val() || {}; if(currentTab==='seedlab' || currentTab==='intel') switchTab(currentTab); });
+                
+                onValue(ref(db, 'settings/holidays'), (snap) => { holidaysData = snap.val() || {}; if(currentTab === 'holidays') renderHolidays(); });
+
+                onValue(ref(db, 'batches'), s => {
+                    const data = s.val() || {};
+                    activeBatchesCount = 0;
+                    Object.values(data).forEach(prodUnit => { Object.values(prodUnit).forEach(b => { if(b.status === 'Growing') activeBatchesCount++; }); });
+                    document.getElementById('statActiveBatches').innerText = activeBatchesCount;
+                });
+
+                onValue(ref(db, 'sowingTasks'), s => {
+                    const data = s.val() || {};
+                    pendingSowingCount = 0;
+                    Object.values(data).forEach(prodUnit => { pendingSowingCount += Object.keys(prodUnit).length; });
+                    document.getElementById('statPendingSowing').innerText = pendingSowingCount;
+                });
+
+                const todayStr = new Date().toISOString().split('T')[0];
+                onValue(ref(db, 'settings/dailyChecklist'), snap => {
+                    const tasks = snap.val() || {};
+                    const total = Object.keys(tasks).length;
+                    onValue(ref(db, `daily_logs/${todayStr}`), lSnap => {
+                        const logs = lSnap.val() || {};
+                        const done = Object.keys(logs).length;
+                        const pct = total > 0 ? Math.round((done/total)*100) : 0;
+                        const el = document.getElementById('statDailyOps');
+                        if(el) el.innerText = pct + "%";
+                    });
+                });
+
+                switchTab('stats');
+            } else {
+                document.getElementById('dashboardView').classList.add('hidden-force');
+                document.getElementById('loginView').classList.remove('hidden-force');
+            }
+        });
+
+        let adminSalesChart = null;
+
+        function renderDashboardCharts() {
+            if (!ordersData) return;
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const today = new Date();
+            const last7Days = [];
+            const chartLabels = [];
+            const chartData = [0,0,0,0,0,0,0];
+
+            for(let i=6; i>=0; i--) {
+                const d = new Date();
+                d.setDate(today.getDate() - i);
+                last7Days.push(d.toDateString());
+                chartLabels.push(days[d.getDay()]);
+            }
+
+            Object.values(ordersData).forEach(o => {
+                if(o.status !== 'CANCELLED' && o.createdAt) {
+                    const d = new Date(o.createdAt).toDateString();
+                    const idx = last7Days.indexOf(d);
+                    if(idx !== -1) { chartData[idx] += parseFloat(o.totalAmount || 0); }
+                }
+            });
+
+            const ctx = document.getElementById('adminSalesChart');
+            if(!ctx) return;
+            if(adminSalesChart) adminSalesChart.destroy();
+            adminSalesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Boxes',
+                        data: chartData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 4,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#10b981',
+                        pointRadius: 4,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { bodyFont: { weight: 'bold', family: 'Inter' } } },
+                    scales: { 
+                        y: { beginAtZero: true, grid: { borderDash: [5, 5] }, ticks: { font: { weight: 'bold', size: 10 } } },
+                        x: { grid: { display: false }, ticks: { font: { weight: 'bold', size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function updateStats() {
+            let oCount = 0, boxCount = 0, pCount = 0, dCount = 0, fCount = 0, sCount = 0, iCount = 0;
+            if(ordersData) Object.values(ordersData).forEach(o => { oCount++; if(o.status === 'DELIVERED') boxCount += parseFloat(o.totalAmount || 0); });
+            if(producersData) Object.values(producersData).forEach(p => { if(p.approved) pCount++; });
+            if(deliveryData) Object.values(deliveryData).forEach(d => { if(d.approved) dCount++; });
+            if(farmersData) Object.values(farmersData).forEach(f => { if(f.approved) fCount++; });
+            if(stationeryData) Object.values(stationeryData).forEach(s => { if(s.approved) sCount++; });
+            if(maintenanceData) Object.values(maintenanceData).forEach(m => { if(m.status !== 'Resolved') iCount++; });
+
+            document.getElementById('statOrders').innerText = oCount;
+            document.getElementById('statRevenue').innerText = boxCount;
+            document.getElementById('statProducers').innerText = pCount;
+            document.getElementById('statFarmers').innerText = fCount;
+            document.getElementById('statStationery').innerText = sCount;
+            document.getElementById('statIssues').innerText = iCount;
+            
+            if (currentTab === 'stats') renderDashboardCharts();
+        }
+
+        const resetOrderPagination = () => { currentOrderPage = 1; renderOrders(); };
+        document.getElementById('orderSearchInput').addEventListener('input', resetOrderPagination);
+        document.getElementById('orderStatusInput').addEventListener('change', resetOrderPagination);
+        document.getElementById('orderDateInput').addEventListener('change', resetOrderPagination);
+        document.getElementById('customerSearchInput').addEventListener('input', renderCustomers);
+    </script>
+</body>
+</html>
