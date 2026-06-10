@@ -303,6 +303,49 @@
             </div>
         </header>
 
+        <!-- GLOBAL DATE FILTER BAR (shown for select tabs) -->
+        <div id="globalFilterBar" class="hidden bg-white border-b border-slate-200 px-4 md:px-6 py-3 no-print">
+            <div class="flex flex-wrap items-center gap-2 md:gap-3">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider flex-shrink-0">Filter:</span>
+                <select id="filterYear" onchange="applyGlobalFilter()" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-400">
+                    <option value="">&#128197; Year</option>
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                    <option value="2021">2021</option>
+                </select>
+                <select id="filterMonth" onchange="applyGlobalFilter()" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-400">
+                    <option value="">All Months</option>
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+                <div class="flex items-center gap-1">
+                    <span class="text-xs text-slate-400 flex-shrink-0">From</span>
+                    <input type="date" id="filterFrom" onchange="applyGlobalFilter()" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-400">
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="text-xs text-slate-400 flex-shrink-0">To</span>
+                    <input type="date" id="filterTo" onchange="applyGlobalFilter()" class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-400">
+                </div>
+                <span id="filterActiveBadge" class="hidden text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">&#9679; Filter Active</span>
+                <button onclick="resetGlobalFilter()" class="ml-auto flex-shrink-0 text-xs font-bold text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                    <i class="fas fa-times-circle"></i> Reset
+                </button>
+            </div>
+        </div>
+
         <!-- VIEWS CONTAINER -->
         <div class="flex-1 overflow-y-auto p-4 md:p-6" id="reportContainer">
 
@@ -739,7 +782,7 @@
                             
                             <button onclick="calculateUpsellImpact()" class="w-full bg-white text-teal-700 py-3 rounded-lg font-bold hover:bg-emerald-50 transition shadow-lg mt-2">Simulate Upsell</button>
                             
-                            <div id="upsellResults" class="hidden mt-6 pt-6 border-t border-white/20 space-y-4 animate-pulse">
+                            <div id="upsellResults" class="hidden mt-6 pt-6 border-t border-white/20 space-y-4">
                                 <div>
                                     <p class="text-xs uppercase font-bold text-emerald-200">Potential Volume Gain</p>
                                     <h3 class="text-3xl font-black text-white" id="upsell-gain">+0 Boxes</h3>
@@ -1116,10 +1159,12 @@
         window.mockLogin = () => { 
             signInWithEmailAndPassword(auth, "admin@oligo.com", "admin123").catch(e => {
                 document.getElementById('authOverlay').classList.add('hidden');
+                const fy2 = document.getElementById('filterYear'); if(fy2) fy2.value='2026';
                 initListeners();
+                updateFilterBarVisibility('sales');
             });
         };
-        auth.onAuthStateChanged(user => { if(user) { document.getElementById('authOverlay').classList.add('hidden'); initListeners(); } });
+        auth.onAuthStateChanged(user => { if(user) { document.getElementById('authOverlay').classList.add('hidden'); const fy = document.getElementById('filterYear'); if(fy) fy.value='2026'; initListeners(); updateFilterBarVisibility('sales'); } });
         window.logout = () => signOut(auth).then(()=> location.reload());
 
         // MOBILE SIDEBAR TOGGLE
@@ -1138,6 +1183,7 @@
             document.querySelectorAll('#reportContainer > div').forEach(d => d.classList.add('hidden-panel'));
             document.getElementById('view-' + tab).classList.remove('hidden-panel');
             
+            updateFilterBarVisibility(tab);
             const titles = { 'sales': 'Sales & Customer Intelligence', 'growth': 'Growth & Target Simulator', 'finance': 'Financial Reports', 'production': 'Farm & Production Analysis', 'store': 'Inventory Management', 'delivery': 'Logistics & Partner Performance', 'search': 'Deep Dive Search', 'receivables': 'Receivables & Collections', 'comms': 'Team Communication Log' };
             document.getElementById('pageTitle').innerText = titles[tab];
             
@@ -1496,7 +1542,7 @@
         // ════════════════════════════════════════════════════
         window.renderSalesCharts = () => {
             const orders = Object.values(DATA.orders || {});
-            const delivered = orders.filter(o => o.status === 'DELIVERED');
+            const delivered = orders.filter(o => o.status === 'DELIVERED' && passesFilter(o.createdAt || o.timestamp));
 
             // ── KPIs ──────────────────────────────────────
             let totalBoxes = 0, customerBoxes = {}, customerOrders = {}, productBoxes = {};
@@ -1649,6 +1695,28 @@
             if (filter === 'this_month') list = refs.filter(r => new Date(r.date || r.timestamp || 0).getMonth() === now.getMonth() && new Date(r.date || r.timestamp || 0).getFullYear() === now.getFullYear());
             if (filter === 'last_month') { const lm = new Date(now.getFullYear(), now.getMonth()-1, 1); list = refs.filter(r => { const d = new Date(r.date || r.timestamp || 0); return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear(); }); }
 
+            // ── Build a UID → Name lookup from customers + receivables ──
+            const uidToName = {};
+            Object.entries(DATA.customers || {}).forEach(([uid, c]) => {
+                const name = c.name || c.displayName || c.fullName || c.email || null;
+                if (name) uidToName[uid] = name;
+                // also index by phone for cross-matching
+                if (c.phone || c.mobile) uidToName[c.phone || c.mobile] = name;
+            });
+            // Also cover customers stored in receivables (name-keyed, no UID)
+            Object.entries(DATA.receivables || {}).forEach(([, v]) => {
+                if (v.name && v.phone) uidToName[v.phone] = v.name;
+            });
+
+            // Resolve a raw value (UID or name) to a display name
+            const resolveName = (raw) => {
+                if (!raw || raw === 'Unknown') return 'Unknown';
+                // If it already looks like a real name (has a space or is short), use it
+                if (raw.includes(' ') || raw.length < 20) return raw;
+                // Otherwise try UID lookup
+                return uidToName[raw] || raw.slice(0, 8) + '…';
+            };
+
             const total = list.length;
             const active = list.filter(r => r.status === 'Active' || r.converted).length;
             const rate = total > 0 ? Math.round((active / total) * 100) : 0;
@@ -1660,30 +1728,47 @@
 
             const byReferrer = {};
             list.forEach(r => {
-                const name = r.referredBy || r.referrer || 'Unknown';
-                if (!byReferrer[name]) byReferrer[name] = { invites: 0, active: 0 };
-                byReferrer[name].invites++;
-                if (r.status === 'Active' || r.converted) byReferrer[name].active++;
+                const rawKey = r.referredBy || r.referrer || 'Unknown';
+                if (!byReferrer[rawKey]) byReferrer[rawKey] = { invites: 0, active: 0 };
+                byReferrer[rawKey].invites++;
+                if (r.status === 'Active' || r.converted) byReferrer[rawKey].active++;
             });
 
             const lbBody = document.getElementById('referralLeaderboardBody');
             if (lbBody) {
                 const sorted = Object.entries(byReferrer).sort((a,b) => b[1].invites - a[1].invites);
-                lbBody.innerHTML = sorted.length ? sorted.slice(0,10).map(([name, d], i) => `
-                    <tr><td class="p-3 font-bold">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '} ${name}</td>
-                    <td class="p-3 text-center">${d.invites}</td>
-                    <td class="p-3 text-center text-emerald-600 font-bold">${d.active}</td>
-                    <td class="p-3 text-center"><button class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">Reward</button></td></tr>`).join('')
+                lbBody.innerHTML = sorted.length ? sorted.slice(0,10).map(([rawKey, d], i) => {
+                    const displayName = resolveName(rawKey);
+                    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+                    // Show UID hint in tooltip if resolved
+                    const title = displayName !== rawKey ? ` title="UID: ${rawKey}"` : '';
+                    return `<tr>
+                        <td class="p-3 font-bold">${medal} <span${title}>${displayName}</span>
+                            ${displayName !== rawKey ? `<div class="text-[10px] text-slate-400 font-normal">UID: ${rawKey.slice(0,10)}…</div>` : ''}
+                        </td>
+                        <td class="p-3 text-center">${d.invites}</td>
+                        <td class="p-3 text-center text-emerald-600 font-bold">${d.active}</td>
+                        <td class="p-3 text-center"><button class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">Reward</button></td></tr>`;
+                }).join('')
                     : '<tr><td colspan="4" class="p-4 text-center text-slate-400">No referral data</td></tr>';
             }
 
             const logBody = document.getElementById('referralLogBody');
             if (logBody) {
-                logBody.innerHTML = list.length ? list.slice(0,20).map(r => `
-                    <tr><td class="p-3 text-xs">${new Date(r.date || r.timestamp || 0).toLocaleDateString('en-IN')}</td>
-                    <td class="p-3 font-bold">${r.referredBy || r.referrer || '—'}</td>
-                    <td class="p-3">${r.friendName || r.referredTo || '—'}</td>
-                    <td class="p-3 text-center"><span class="text-xs px-2 py-0.5 rounded-full font-bold ${r.status==='Active'||r.converted?'bg-green-100 text-green-700':'bg-slate-100 text-slate-600'}">${r.status || 'Pending'}</span></td></tr>`).join('')
+                logBody.innerHTML = list.length ? list.slice(0,20).map(r => {
+                    const fromName = resolveName(r.referredBy || r.referrer || '—');
+                    const toName   = resolveName(r.friendName || r.referredTo || '—');
+                    const rawFrom  = r.referredBy || r.referrer || '';
+                    const fromTip  = (fromName !== rawFrom && rawFrom.length >= 20) ? ` title="UID: ${rawFrom}"` : '';
+                    return `<tr>
+                        <td class="p-3 text-xs">${new Date(r.date || r.timestamp || 0).toLocaleDateString('en-IN')}</td>
+                        <td class="p-3 font-bold">
+                            <span${fromTip}>${fromName}</span>
+                            ${(fromName !== rawFrom && rawFrom.length >= 20) ? `<div class="text-[10px] text-slate-400">${rawFrom.slice(0,10)}…</div>` : ''}
+                        </td>
+                        <td class="p-3">${toName}</td>
+                        <td class="p-3 text-center"><span class="text-xs px-2 py-0.5 rounded-full font-bold ${r.status==='Active'||r.converted?'bg-green-100 text-green-700':'bg-slate-100 text-slate-600'}">${r.status || 'Pending'}</span></td></tr>`;
+                }).join('')
                     : '<tr><td colspan="4" class="p-4 text-center text-slate-400">No referral logs</td></tr>';
             }
         };
@@ -1700,7 +1785,7 @@
         //  2. GROWTH & TARGET
         // ════════════════════════════════════════════════════
         window.renderGrowthTab = () => {
-            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED');
+            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED' && passesFilter(o.createdAt || o.timestamp));
             const now = new Date(); const mn = now.getMonth(); const yr = now.getFullYear();
 
             const monthlyBoxes = {};
@@ -1756,10 +1841,15 @@
                 const name = o.customerName||o.customer||'?';
                 custBoxes[name] = (custBoxes[name]||0)+boxes;
             });
-            const lowVol = document.getElementById('growth-low-vol-body');
+            const lowVol = document.getElementById('lowVolumeClientBody');
             if (lowVol) {
                 const sorted = Object.entries(custBoxes).sort((a,b)=>a[1]-b[1]).slice(0,10);
-                lowVol.innerHTML = sorted.length ? sorted.map(([n,b]) => `<tr><td class="p-3 font-bold">${n}</td><td class="p-3 text-center font-bold text-amber-600">${b}</td><td class="p-3 text-center"><button onclick="alert('Contact ${n} for upsell opportunity')" class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold">Upsell</button></td></tr>`).join('') : '<tr><td colspan="3" class="p-4 text-center text-slate-400">No data</td></tr>';
+                const orderCounts = {};
+                orders.forEach(o => { const n=o.customerName||o.customer||'?'; orderCounts[n]=(orderCounts[n]||0)+1; });
+                lowVol.innerHTML = sorted.length ? sorted.map(([n,b]) => {
+                    const avgBoxes = orderCounts[n] ? (b/orderCounts[n]).toFixed(1) : b;
+                    return `<tr><td class="p-3 font-bold">${n}</td><td class="p-3 text-center font-bold text-amber-600">${avgBoxes}</td><td class="p-3 text-center">${orderCounts[n]||1}</td><td class="p-3 text-right"><button onclick="alert('Contact '+encodeURIComponent('${n}')+' for upsell')" class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold">Upsell</button></td></tr>`;
+                }).join('') : '<tr><td colspan="4" class="p-4 text-center text-slate-400">No data</td></tr>';
             }
         };
 
@@ -1768,7 +1858,7 @@
             const period = parseInt(document.getElementById('targetPeriod')?.value) || 1;
             if (!targetRaw) { alert('Please enter a target volume'); return; }
 
-            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED');
+            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED' && passesFilter(o.createdAt || o.timestamp));
             const now = new Date(); const mn = now.getMonth(); const yr = now.getFullYear();
             const thisMonthKey = yr + '-' + String(mn+1).padStart(2,'0');
             const monthlyBoxes = {};
@@ -1801,7 +1891,7 @@
         };
 
         window.calculateUpsellImpact = () => {
-            const pct = parseFloat(document.getElementById('upsellSlider')?.value) || 10;
+            const targetAvg = parseFloat(document.getElementById('upsellTargetBox')?.value) || 5;
             const orders = Object.values(DATA.orders||{}).filter(o=>o.status==='DELIVERED');
             const custBoxes = {};
             orders.forEach(o => {
@@ -1810,21 +1900,22 @@
                 const name = o.customerName||o.customer||'?';
                 custBoxes[name]=(custBoxes[name]||0)+boxes;
             });
-            const lowVol = Object.entries(custBoxes).filter(([,b])=>b<10);
-            const gain = Math.round(lowVol.reduce((s,[,b])=>s+b,0)*(pct/100));
+            const lowVol = Object.entries(custBoxes).filter(([,b])=>b < targetAvg);
+            const gain = Math.round(lowVol.reduce((s,[,b])=>s+(targetAvg-b),0));
             const totalNow = Object.values(custBoxes).reduce((a,b)=>a+b,0);
             const growthPct = totalNow>0?Math.round((gain/totalNow)*100):0;
             const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
             set('upsell-gain', '+'+gain+' Boxes');
             set('upsell-pct', '+'+growthPct+'% Growth');
-            if(document.getElementById('upsellPctLabel')) document.getElementById('upsellPctLabel').textContent = pct+'%';
+            // label removed (no slider)
+            document.getElementById('upsellResults').classList.remove('hidden');
         };
 
         // ════════════════════════════════════════════════════
         //  3. PRODUCTION — CHARTS
         // ════════════════════════════════════════════════════
         window.renderProductionCharts = () => {
-            const batches = Object.values(DATA.batches || {});
+            const batches = Object.values(DATA.batches || {}).filter(b => passesFilter(b.sowDate || b.createdAt || b.timestamp));
             const crops = Object.values(DATA.farmCrops || {});
             const now = Date.now();
 
@@ -1900,8 +1991,8 @@
         };
 
         window.renderWasteCharts = () => {
-            const logs = Object.values(DATA.production_logs || {}).filter(l => l.type==='waste'||l.action==='discard'||l.isWaste);
-            const batches = Object.values(DATA.batches||{}).filter(b=>b.status==='Discarded');
+            const logs = Object.values(DATA.production_logs || {}).filter(l => (l.type==='waste'||l.action==='discard'||l.isWaste) && passesFilter(l.date||l.timestamp||l.createdAt));
+            const batches = Object.values(DATA.batches||{}).filter(b=>b.status==='Discarded' && passesFilter(b.sowDate||b.createdAt||b.timestamp));
             const allWaste = [...logs, ...batches];
 
             const byReason = {}; const byItem = {};
@@ -1986,7 +2077,7 @@
         // ════════════════════════════════════════════════════
         window.renderDeliveryCharts = () => {
             const partners = Object.values(DATA.partners || DATA.deliveryPartners || {});
-            const transactions = Object.values(DATA.partner_transactions || {});
+            const transactions = Object.values(DATA.partner_transactions || {}).filter(t => passesFilter(t.date || t.timestamp));
 
             const totalDel = transactions.filter(t=>t.type==='delivery'||t.action==='delivery').length || transactions.length;
             const cashHeld = partners.reduce((s,p)=>s+(parseFloat(p.cashHeld||p.wallet||p.balance||0)),0);
@@ -2071,12 +2162,36 @@
             if(content.classList.contains('hidden')) { content.classList.remove('hidden'); header.classList.add('expanded'); } 
             else { content.classList.add('hidden'); header.classList.remove('expanded'); }
         };
-        // ... (Rest of existing JS functions like saveRemark, etc. - implicitly included as I didn't remove them, just focused on adding new ones above)
-        // Re-declaring key legacy functions to ensure the file works standalone as requested
-        window.renderReferralData = () => {};
-        window.calculateGrowthTarget = () => {};
-        window.calculateUpsellImpact = () => {};
-        window.performDeepSearch = () => {};
+        // Deep Search
+        window.performDeepSearch = () => {
+            const q = (document.getElementById('deepSearchInput')?.value || '').toLowerCase().trim();
+            const results = document.getElementById('deepSearchResults');
+            if (!q) { results.innerHTML = '<p class="text-slate-400 text-center">Enter a search term above.</p>'; return; }
+
+            const orders = Object.values(DATA.orders || {});
+            const customers = Object.values(DATA.customers || {});
+            const matched = orders.filter(o => {
+                const name = (o.customerName||o.customer||'').toLowerCase();
+                const phone = (o.phone||'').toLowerCase();
+                const id = (o.id||o.orderId||'').toLowerCase();
+                return name.includes(q) || phone.includes(q) || id.includes(q);
+            });
+
+            if (matched.length === 0) {
+                results.innerHTML = '<p class="text-slate-400 text-center">No results found.</p>';
+                return;
+            }
+            results.innerHTML = matched.slice(0,20).map(o => {
+                const items = Array.isArray(o.items) ? o.items : Object.values(o.items || {});
+                return `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="font-bold text-slate-800">${o.customerName||o.customer||'—'}</div>
+                        <span class="text-xs px-2 py-1 rounded-full font-bold ${o.status==='DELIVERED'?'bg-green-100 text-green-700':'bg-slate-100 text-slate-600'}">${o.status||'—'}</span>
+                    </div>
+                    <div class="text-xs text-slate-500">${new Date(o.createdAt||o.timestamp||0).toLocaleDateString('en-IN')} · ${items.length} item(s) · ${items.reduce((s,i)=>s+(parseInt(i.qty)||0),0)} boxes</div>
+                </div>`;
+            }).join('');
+        };
 
         // ── filterTable (search any table by text) ──────────
         window.filterTable = (input, tableId) => {
@@ -2454,6 +2569,68 @@
                 </div>
             </div>`;
         };
+
+        // ════════════════════════════════════════════════════
+        //  GLOBAL DATE FILTER
+        // ════════════════════════════════════════════════════
+        // Tabs that support the filter bar
+        const FILTER_TABS = ['sales', 'store', 'delivery', 'production'];
+
+        // Returns active filter object {year, month, from, to}
+        window.getGlobalFilter = () => ({
+            year:  document.getElementById('filterYear')?.value  || '',
+            month: document.getElementById('filterMonth')?.value || '',
+            from:  document.getElementById('filterFrom')?.value  || '',
+            to:    document.getElementById('filterTo')?.value    || '',
+        });
+
+        // Returns true if the ISO date string passes the active filter
+        window.passesFilter = (dateStr) => {
+            if (!dateStr) return true;
+            const f = getGlobalFilter();
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return true;
+
+            const yyyy = String(d.getFullYear());
+            const mm   = String(d.getMonth() + 1).padStart(2, '0');
+            const iso  = d.toISOString().slice(0, 10);
+
+            if (f.year  && yyyy !== f.year)      return false;
+            if (f.month && mm   !== f.month)     return false;
+            if (f.from  && iso  <  f.from)       return false;
+            if (f.to    && iso  >  f.to)         return false;
+            return true;
+        };
+
+        window.applyGlobalFilter = () => {
+            const f = getGlobalFilter();
+            const isActive = f.year || f.month || f.from || f.to;
+            const badge = document.getElementById('filterActiveBadge');
+            if (badge) badge.classList.toggle('hidden', !isActive);
+            // Re-render the current tab with filter applied
+            refreshActiveTab();
+        };
+
+        window.resetGlobalFilter = () => {
+            ['filterYear','filterMonth','filterFrom','filterTo'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.value = '';
+            });
+            const badge = document.getElementById('filterActiveBadge');
+            if (badge) badge.classList.add('hidden');
+            refreshActiveTab();
+        };
+
+        // Show/hide filter bar based on the active tab
+        function updateFilterBarVisibility(tab) {
+            const bar = document.getElementById('globalFilterBar');
+            if (!bar) return;
+            if (FILTER_TABS.includes(tab)) {
+                bar.classList.remove('hidden');
+            } else {
+                bar.classList.add('hidden');
+            }
+        }
+
     </script>
 </body>
 </html>
