@@ -888,52 +888,96 @@
 
             <!-- 5. DELIVERY & LOGISTICS -->
             <div id="view-delivery" class="hidden-panel fade-in">
+                <!-- Sub-tab Nav -->
                 <div class="flex gap-6 border-b border-slate-200 mb-6 overflow-x-auto no-scrollbar">
-                    <button onclick="switchSubTab('delivery', 'overview')" class="sub-tab active pb-3 text-sm flex-shrink-0">Overview</button>
-                    <button onclick="switchSubTab('delivery', 'partners')" class="sub-tab pb-3 text-sm flex-shrink-0">Partner Stats</button>
-                    <button onclick="switchSubTab('delivery', 'logs')" class="sub-tab pb-3 text-sm flex-shrink-0">Detailed Transaction Log</button>
+                    <button onclick="switchSubTab('delivery','overview')"  class="sub-tab active pb-3 text-sm flex-shrink-0">Overview</button>
+                    <button onclick="switchSubTab('delivery','partners')"  class="sub-tab pb-3 text-sm flex-shrink-0">Partner Breakdown</button>
+                    <button onclick="switchSubTab('delivery','logs')"      class="sub-tab pb-3 text-sm flex-shrink-0">Delivery Log</button>
                 </div>
 
-                <!-- Delivery Overview -->
-                <div id="delivery-overview" class="sub-panel block">
-                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div class="bg-white p-5 rounded-xl border-t-4 border-blue-500 shadow-sm card">
-                            <p class="text-xs font-bold text-slate-400 uppercase">Total Deliveries</p>
-                            <h3 class="text-3xl font-black text-blue-600 mt-1" id="kpi-del-total">0</h3>
+                <!-- ═══════════════════════ OVERVIEW ═══════════════════════ -->
+                <div id="delivery-overview" class="sub-panel block space-y-6">
+
+                    <!-- KPI Row -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white p-5 rounded-2xl border-t-4 border-blue-500 shadow-sm">
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Deliveries</p>
+                            <h3 class="text-3xl font-black text-blue-600 mt-1" id="kpi-del-total">—</h3>
+                            <p class="text-xs text-slate-400 mt-1">Trips recorded</p>
                         </div>
-                        <div class="bg-white p-5 rounded-xl border-t-4 border-emerald-500 shadow-sm card">
-                            <p class="text-xs font-bold text-slate-400 uppercase">Cash in Hand</p>
+                        <div class="bg-white p-5 rounded-2xl border-t-4 border-violet-500 shadow-sm">
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Boxes Delivered</p>
+                            <h3 class="text-3xl font-black text-violet-600 mt-1" id="kpi-del-boxes">—</h3>
+                            <p class="text-xs text-slate-400 mt-1">Across all partners</p>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border-t-4 border-emerald-500 shadow-sm">
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cash in Hand</p>
                             <h3 class="text-3xl font-black text-emerald-600 mt-1" id="kpi-del-cash">₹0</h3>
-                            <p class="text-xs text-slate-400 mt-1">Held by Partners</p>
+                            <p class="text-xs text-slate-400 mt-1">Held by partners</p>
                         </div>
-                        <div class="bg-white p-5 rounded-xl border-t-4 border-slate-500 shadow-sm card">
-                            <p class="text-xs font-bold text-slate-400 uppercase">Top Partner</p>
-                            <h3 class="text-xl font-bold text-slate-700 mt-2 truncate" id="kpi-del-top">-</h3>
+                        <div class="bg-white p-5 rounded-2xl border-t-4 border-amber-500 shadow-sm">
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Top Partner</p>
+                            <h3 class="text-lg font-black text-amber-600 mt-2 truncate" id="kpi-del-top">—</h3>
+                            <p class="text-xs text-slate-400 mt-1">By boxes delivered</p>
                         </div>
                     </div>
+
+                    <!-- Charts Row -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 card">
-                            <h3 class="font-bold text-slate-700 mb-4">Deliveries by Partner</h3>
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-slate-700">📦 Boxes Delivered per Partner</h3>
+                                <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">All Time</span>
+                            </div>
                             <div class="h-64 relative"><canvas id="deliveryVolumeChart"></canvas></div>
                         </div>
-                         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 card">
-                            <h3 class="font-bold text-slate-700 mb-4">Daily Delivery Trend</h3>
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-slate-700">📅 Daily Delivery Trend</h3>
+                                <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Last 30 days</span>
+                            </div>
                             <div class="h-64 relative"><canvas id="deliveryTrendChart"></canvas></div>
                         </div>
                     </div>
+
+                    <!-- Second Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-slate-700">🥧 Partner Share of Deliveries</h3>
+                                <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">% of total</span>
+                            </div>
+                            <div class="h-64 relative"><canvas id="deliveryShareChart"></canvas></div>
+                        </div>
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-slate-700">📊 Monthly Boxes Delivered</h3>
+                                <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">By month</span>
+                            </div>
+                            <div class="h-64 relative"><canvas id="deliveryMonthlyChart"></canvas></div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Partner Stats -->
+                <!-- ═══════════════════════ PARTNER BREAKDOWN ═══════════════════════ -->
                 <div id="delivery-partners" class="sub-panel hidden">
-                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden card">
-                        <div class="p-4 bg-slate-50 border-b border-slate-200 font-bold text-slate-700">Partner Leaderboard & Wallet</div>
+                    <!-- Partner cards -->
+                    <div id="deliveryPartnerCards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-6"></div>
+                    <!-- Partner table -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                            <span class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-trophy text-amber-500"></i> Partner Leaderboard</span>
+                            <span class="text-xs text-slate-400">Ranked by boxes delivered</span>
+                        </div>
                         <div class="overflow-auto">
-                            <table class="w-full text-sm text-left min-w-[600px]">
-                                <thead class="bg-white text-xs uppercase font-bold text-slate-500">
+                            <table class="w-full text-sm text-left min-w-[650px]">
+                                <thead class="bg-slate-50 text-xs uppercase font-bold text-slate-500">
                                     <tr>
+                                        <th class="p-4">#</th>
                                         <th class="p-4">Partner Name</th>
                                         <th class="p-4 text-center">Trips</th>
-                                        <th class="p-4 text-center">Total Boxes</th>
+                                        <th class="p-4 text-center">Boxes Delivered</th>
+                                        <th class="p-4 text-center">Avg Boxes/Trip</th>
                                         <th class="p-4 text-right">Cash Held (₹)</th>
                                         <th class="p-4 text-center">Status</th>
                                     </tr>
@@ -944,26 +988,30 @@
                     </div>
                 </div>
 
-                <!-- Financial Logs -->
+                <!-- ═══════════════════════ DELIVERY LOG ═══════════════════════ -->
                 <div id="delivery-logs" class="sub-panel hidden">
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden card">
-                         <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-                            <div class="font-bold text-slate-700 flex items-center gap-2"><i class="fas fa-list-ul"></i> Detailed Transaction Log</div>
-                            <input type="text" placeholder="Search..." onkeyup="filterTable(this, 'deliveryLogBody')" class="border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64 bg-white">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                            <div class="font-bold text-slate-700 flex items-center gap-2">
+                                <i class="fas fa-clipboard-list text-blue-500"></i> Delivery Log
+                                <span class="text-xs font-normal text-slate-400 ml-1" id="del-log-count"></span>
+                            </div>
+                            <input type="text" placeholder="Search partner, date, customer..." onkeyup="filterTable(this,'deliveryLogBody')" class="border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 w-full md:w-72 bg-white">
                         </div>
-                        <div class="overflow-auto max-h-[500px]">
-                            <table class="w-full text-sm text-left min-w-[500px]">
-                                <thead class="bg-white text-xs uppercase font-bold text-slate-500 sticky top-0">
+                        <div class="overflow-auto max-h-[520px]">
+                            <table class="w-full text-sm text-left min-w-[600px]">
+                                <thead class="bg-slate-50 text-xs uppercase font-bold text-slate-500 sticky top-0">
                                     <tr>
                                         <th class="p-3">Date</th>
                                         <th class="p-3">Partner</th>
-                                        <th class="p-3">Details</th>
-                                        <th class="p-3 text-right">Value (Boxes/₹)</th>
-                                        <th class="p-3 text-center">Type</th>
+                                        <th class="p-3">Customer / Details</th>
+                                        <th class="p-3 text-center">Boxes</th>
+                                        <th class="p-3 text-right">Amount (₹)</th>
+                                        <th class="p-3 text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody id="deliveryLogBody" class="divide-y divide-slate-100">
-                                    <tr><td colspan="5" class="p-4 text-center text-slate-400">Loading transactions...</td></tr>
+                                    <tr><td colspan="6" class="p-6 text-center text-slate-400">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -2076,64 +2124,288 @@
         //  5. DELIVERY & LOGISTICS
         // ════════════════════════════════════════════════════
         window.renderDeliveryCharts = () => {
-            const partners = Object.values(DATA.partners || DATA.deliveryPartners || {});
-            const transactions = Object.values(DATA.partner_transactions || {}).filter(t => passesFilter(t.date || t.timestamp));
 
-            const totalDel = transactions.filter(t=>t.type==='delivery'||t.action==='delivery').length || transactions.length;
-            const cashHeld = partners.reduce((s,p)=>s+(parseFloat(p.cashHeld||p.wallet||p.balance||0)),0);
-            const topPartner = partners.sort((a,b)=>(parseInt(b.trips||b.deliveries||0))-(parseInt(a.trips||a.deliveries||0)))[0]?.name || (partners[0]?.name) || '-';
+            // ── Safe date parser ──
+            const parseDate = (raw) => {
+                if (!raw) return null;
+                if (typeof raw === 'number') return raw > 1e10 ? new Date(raw) : new Date(raw * 1000);
+                const s = String(raw).trim();
+                if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
+                const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`);
+                const d = new Date(s); return isNaN(d.getTime()) ? null : d;
+            };
+            const fmtDate = (raw) => {
+                const d = parseDate(raw);
+                return (d && !isNaN(d)) ? d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+            };
 
-            const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-            set('kpi-del-total', totalDel);
-            set('kpi-del-cash', '₹'+cashHeld.toLocaleString('en-IN'));
-            set('kpi-del-top', topPartner);
+            // ── Raw Firebase data ──
+            // deliveryPartners/{uid} → { name, email, phone, approved, online, serviceArea, createdAt }
+            const partnerMap = DATA.deliveryPartners || {};
+            // orders/{id} → { deliveryUid, deliveryName, deliveryPhone, status, deliveredAt, items, totalAmount, customerName, ... }
+            const orderMap   = DATA.orders || {};
+            // partner_transactions/{uid}/{txId} → { amount, note, type:'Expense', createdAt, dateStr }
+            // NOTE: stored PER UID as a nested object, so DATA.partner_transactions = { uid1: {tx1:…}, uid2: {tx2:…} }
+            const txnByUid   = DATA.partner_transactions || {};
 
-            // Volume by partner
-            const partnerVol = {};
-            partners.forEach(p => { partnerVol[p.name||p.id||'Unknown'] = parseInt(p.trips||p.totalDeliveries||p.deliveries||0); });
-            transactions.forEach(t => {
-                const pname = t.partner||t.partnerName||'Unknown';
-                if(t.type==='delivery'||t.action==='delivery') partnerVol[pname]=(partnerVol[pname]||0)+1;
+            // ── Build UID→partner lookup ──
+            // partnerMap key IS the uid
+            const uidToPartner = partnerMap; // { uid: { name, phone, email, approved, online, serviceArea } }
+
+            // ── Build per-partner stats ──
+            // Key by UID so we can cross-reference reliably
+            // stats[uid] = { name, phone, email, serviceArea, approved, online, trips, boxes, expenses, lastDate }
+            const stats = {};
+
+            // Seed from partnerMap — create an entry for every known partner
+            Object.entries(partnerMap).forEach(([uid, p]) => {
+                if (!p.approved) return; // only approved partners
+                stats[uid] = {
+                    name:        p.name || '—',
+                    phone:       p.phone || '—',
+                    email:       p.email || '—',
+                    serviceArea: p.serviceArea || '—',
+                    online:      p.online || false,
+                    trips:       0,
+                    boxes:       0,
+                    expenses:    0,
+                    lastDate:    null
+                };
             });
-            const volLabels = Object.keys(partnerVol);
+
+            // Count trips + boxes from DELIVERED orders using deliveryUid
+            Object.values(orderMap).forEach(o => {
+                if (o.status !== 'DELIVERED') return;
+                const uid = o.deliveryUid;
+                if (!uid) return;
+                // Create entry if partner exists in deliveryPartners but wasn't approved (edge case)
+                if (!stats[uid]) {
+                    const p = partnerMap[uid] || {};
+                    stats[uid] = {
+                        name: o.deliveryName || p.name || uid.slice(0,8)+'…',
+                        phone: o.deliveryPhone || p.phone || '—',
+                        email: p.email || '—',
+                        serviceArea: p.serviceArea || '—',
+                        online: false, trips: 0, boxes: 0, expenses: 0, lastDate: null
+                    };
+                }
+                stats[uid].trips++;
+                // Count boxes from items
+                const items = Array.isArray(o.items) ? o.items : Object.values(o.items || {});
+                stats[uid].boxes += items.reduce((s, i) => s + (parseInt(i.qty) || 0), 0);
+                // Track last delivery date
+                const d = parseDate(o.deliveredAt || o.updatedAt || o.createdAt);
+                if (d && (!stats[uid].lastDate || d > stats[uid].lastDate)) stats[uid].lastDate = d;
+            });
+
+            // Add expenses from partner_transactions (each uid has its own sub-tree)
+            Object.entries(txnByUid).forEach(([uid, txns]) => {
+                if (!stats[uid]) return;
+                Object.values(txns || {}).forEach(t => {
+                    stats[uid].expenses += parseFloat(t.amount || 0);
+                });
+            });
+
+            // ── Sort by boxes desc ──
+            const sorted = Object.entries(stats).sort(([,a],[,b]) => b.boxes - a.boxes);
+            const uids   = sorted.map(([uid]) => uid);
+
+            // ── KPIs ──
+            const totalTrips   = sorted.reduce((s,[,p]) => s+p.trips,    0);
+            const totalBoxes   = sorted.reduce((s,[,p]) => s+p.boxes,    0);
+            const totalExpenses= sorted.reduce((s,[,p]) => s+p.expenses, 0);
+            const topName      = sorted[0]?.[1]?.name || '—';
+            const approvedCount= sorted.length;
+
+            const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+            set('kpi-del-total', totalTrips.toLocaleString('en-IN'));
+            set('kpi-del-boxes', totalBoxes.toLocaleString('en-IN'));
+            set('kpi-del-cash',  '₹' + totalExpenses.toLocaleString('en-IN'));
+            set('kpi-del-top',   topName);
+
+            // ── Chart 1: Boxes per Partner ──
+            const barColors = ['#6366f1','#3b82f6','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+            const chartLabels = sorted.map(([,p]) => p.name);
             safeChart('deliveryVolumeChart', {
-                type:'bar',
-                data:{ labels:volLabels, datasets:[{ label:'Deliveries', data:Object.values(partnerVol), backgroundColor:'rgba(59,130,246,0.7)', borderRadius:4 }] },
-                options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+                type: 'bar',
+                data: { labels: chartLabels,
+                    datasets: [{ label: 'Boxes Delivered', data: sorted.map(([,p])=>p.boxes),
+                        backgroundColor: chartLabels.map((_,i)=>barColors[i%barColors.length]), borderRadius:6 }]
+                },
+                options: { responsive:true, maintainAspectRatio:false,
+                    plugins:{legend:{display:false}},
+                    scales:{y:{beginAtZero:true, ticks:{stepSize:1}}} }
             });
 
-            // Daily trend
+            // ── Chart 2: Daily delivery trend from orders ──
             const daily = {};
-            transactions.forEach(t => {
-                const d = new Date(t.date||t.timestamp||Date.now()).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
-                daily[d]=(daily[d]||0)+1;
+            const passDate = (raw) => {
+                if (typeof passesFilter !== 'function') return true;
+                const d = parseDate(raw); if (!d) return true;
+                return passesFilter(d.toISOString().slice(0,10));
+            };
+            Object.values(orderMap).filter(o => o.status==='DELIVERED').forEach(o => {
+                if (!passDate(o.deliveredAt || o.updatedAt || o.createdAt)) return;
+                const d = parseDate(o.deliveredAt || o.updatedAt || o.createdAt);
+                if (!d) return;
+                const dk = d.toISOString().slice(0,10);
+                daily[dk] = (daily[dk]||0)+1;
             });
-            const dlKeys = Object.keys(daily).slice(-14);
+            const sortedDays = Object.keys(daily).sort().slice(-30);
+            const dayLabels  = sortedDays.map(dk => new Date(dk).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}));
             safeChart('deliveryTrendChart', {
                 type:'line',
-                data:{ labels:dlKeys, datasets:[{ label:'Deliveries/Day', data:dlKeys.map(k=>daily[k]), fill:true, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.1)', tension:0.4, pointRadius:3 }] },
-                options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+                data:{ labels: dayLabels.length?dayLabels:['No data'],
+                    datasets:[{ label:'Deliveries', data:dayLabels.length?sortedDays.map(k=>daily[k]):[0],
+                        fill:true, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.1)',
+                        tension:0.4, pointRadius:3 }]
+                },
+                options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}
             });
 
-            // Partner leaderboard
-            const partnerBody = document.getElementById('deliveryPartnerBody');
-            if(partnerBody) partnerBody.innerHTML = partners.length ? partners.map(p => {
-                const trips = parseInt(p.trips||p.totalDeliveries||p.deliveries||0);
-                const cash = parseFloat(p.cashHeld||p.wallet||p.balance||0);
-                const statusColor = p.status==='Active'?'bg-green-100 text-green-700':'bg-slate-100 text-slate-600';
-                return `<tr><td class="p-4 font-bold">${p.name||'—'}</td><td class="p-4 text-center font-bold">${trips}</td><td class="p-4 text-center">${p.totalBoxes||'—'}</td><td class="p-4 text-right font-bold ${cash>0?'text-amber-600':''}">${cash>0?'₹'+cash.toLocaleString('en-IN'):'₹0'}</td><td class="p-4 text-center"><span class="text-xs px-2 py-0.5 rounded-full font-bold ${statusColor}">${p.status||'Active'}</span></td></tr>`;
-            }).join('') : '<tr><td colspan="5" class="p-6 text-center text-slate-400">No partner data</td></tr>';
+            // ── Chart 3: Partner share doughnut ──
+            safeChart('deliveryShareChart', {
+                type:'doughnut',
+                data:{ labels:chartLabels,
+                    datasets:[{ data:sorted.map(([,p])=>p.boxes), backgroundColor:barColors, borderWidth:2, borderColor:'#fff' }]
+                },
+                options:{ responsive:true, maintainAspectRatio:false,
+                    plugins:{legend:{position:'right',labels:{boxWidth:12,font:{size:11}}}}, cutout:'60%' }
+            });
 
-            // Transaction log
+            // ── Chart 4: Monthly boxes ──
+            const monthly = {};
+            Object.values(orderMap).filter(o=>o.status==='DELIVERED').forEach(o=>{
+                const d = parseDate(o.deliveredAt||o.updatedAt||o.createdAt);
+                if(!d) return;
+                const items = Array.isArray(o.items)?o.items:Object.values(o.items||{});
+                const boxes = items.reduce((s,i)=>s+(parseInt(i.qty)||0),0);
+                const mk = d.toLocaleDateString('en-IN',{month:'short',year:'2-digit'});
+                monthly[mk]=(monthly[mk]||0)+boxes;
+            });
+            const mKeys = Object.keys(monthly).slice(-12);
+            safeChart('deliveryMonthlyChart', {
+                type:'bar',
+                data:{ labels:mKeys.length?mKeys:['No data'],
+                    datasets:[{ label:'Boxes', data:mKeys.length?mKeys.map(k=>monthly[k]):[0],
+                        backgroundColor:'rgba(16,185,129,0.75)', borderRadius:5 }]
+                },
+                options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+            });
+
+            // ── Partner Cards ──
+            const cardsContainer = document.getElementById('deliveryPartnerCards');
+            if (cardsContainer) {
+                if (sorted.length === 0) {
+                    cardsContainer.innerHTML = '<p class="text-slate-400 text-sm col-span-3 text-center py-6">No approved partners found</p>';
+                } else {
+                    const medal = ['🥇','🥈','🥉'];
+                    cardsContainer.innerHTML = sorted.map(([uid, p], i) => {
+                        const avgBoxes = p.trips > 0 ? (p.boxes/p.trips).toFixed(1) : '—';
+                        const lastD    = p.lastDate ? p.lastDate.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : 'No deliveries yet';
+                        const statusBadge = p.online
+                            ? '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Online</span>'
+                            : '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">⚫ Offline</span>';
+                        // Get expense total for this partner
+                        const partnerTxns = Object.values(txnByUid[uid] || {});
+                        const expenseTotal = partnerTxns.reduce((s,t)=>s+parseFloat(t.amount||0),0);
+                        return `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <div class="text-lg font-black text-slate-800">${medal[i]||'🚚'} ${p.name}</div>
+                                    <div class="flex items-center gap-2 mt-1">${statusBadge}</div>
+                                    <div class="text-xs text-slate-400 mt-1">📞 ${p.phone}</div>
+                                    ${p.serviceArea !== '—' ? `<div class="text-xs text-slate-400">📍 ${p.serviceArea}</div>` : ''}
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-3xl font-black text-violet-600">${p.boxes.toLocaleString('en-IN')}</div>
+                                    <div class="text-xs text-slate-400">boxes delivered</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mt-3">
+                                <div class="bg-blue-50 rounded-xl p-2 text-center">
+                                    <div class="text-xl font-black text-blue-600">${p.trips}</div>
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase">Trips</div>
+                                </div>
+                                <div class="bg-violet-50 rounded-xl p-2 text-center">
+                                    <div class="text-xl font-black text-violet-600">${avgBoxes}</div>
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase">Avg/Trip</div>
+                                </div>
+                                <div class="bg-rose-50 rounded-xl p-2 text-center">
+                                    <div class="text-sm font-black text-rose-600">₹${expenseTotal.toLocaleString('en-IN')}</div>
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase">Expenses</div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">
+                                Last delivery: <span class="font-medium text-slate-600">${lastD}</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
+            // ── Partner Leaderboard Table ──
+            const partnerBody = document.getElementById('deliveryPartnerBody');
+            if (partnerBody) {
+                if (sorted.length === 0) {
+                    partnerBody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400">No approved partners found</td></tr>';
+                } else {
+                    partnerBody.innerHTML = sorted.map(([uid, p], i) => {
+                        const avgBoxes   = p.trips > 0 ? (p.boxes/p.trips).toFixed(1) : '—';
+                        const rankColor  = i===0?'text-amber-500 font-black':i===1?'text-slate-400 font-black':i===2?'text-orange-400 font-black':'text-slate-400';
+                        const onlineBadge= p.online ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500';
+                        const onlineText = p.online ? '🟢 Online' : 'Offline';
+                        const expTotal   = Object.values(txnByUid[uid]||{}).reduce((s,t)=>s+parseFloat(t.amount||0),0);
+                        return `<tr class="hover:bg-slate-50 transition">
+                            <td class="p-4 ${rankColor}">#${i+1}</td>
+                            <td class="p-4">
+                                <div class="font-bold text-slate-800">${p.name}</div>
+                                <div class="text-xs text-slate-400">${p.phone}</div>
+                            </td>
+                            <td class="p-4 text-center font-bold text-blue-600">${p.trips}</td>
+                            <td class="p-4 text-center font-black text-violet-600 text-lg">${p.boxes.toLocaleString('en-IN')}</td>
+                            <td class="p-4 text-center text-slate-600">${avgBoxes}</td>
+                            <td class="p-4 text-right font-bold ${expTotal>0?'text-rose-600':'text-slate-400'}">₹${expTotal.toLocaleString('en-IN')}</td>
+                            <td class="p-4 text-center"><span class="text-xs px-2 py-1 rounded-full font-bold ${onlineBadge}">${onlineText}</span></td>
+                        </tr>`;
+                    }).join('');
+                }
+            }
+
+            // ── Delivery Log from orders ──
             const logBody = document.getElementById('deliveryLogBody');
-            if(logBody) logBody.innerHTML = transactions.length ? transactions.slice(0,30).map(t => `
-                <tr><td class="p-3 text-xs">${new Date(t.date||t.timestamp||0).toLocaleDateString('en-IN')}</td>
-                <td class="p-3 font-bold">${t.partner||t.partnerName||'—'}</td>
-                <td class="p-3 text-xs">${t.notes||t.details||t.description||'—'}</td>
-                <td class="p-3 text-right font-bold">${t.boxes||t.qty?t.boxes||t.qty+' boxes':t.amount?'₹'+parseFloat(t.amount).toLocaleString('en-IN'):'—'}</td>
-                <td class="p-3 text-center"><span class="text-xs px-2 py-0.5 rounded-full font-bold ${t.type==='delivery'?'bg-blue-100 text-blue-700':'bg-emerald-100 text-emerald-700'}">${t.type||t.action||'Delivery'}</span></td></tr>`).join('')
-                : '<tr><td colspan="5" class="p-4 text-center text-slate-400">No transaction logs</td></tr>';
+            if (logBody) {
+                const delivered = Object.values(orderMap).filter(o => o.status==='DELIVERED');
+                delivered.sort((a,b)=>{
+                    const da=parseDate(a.deliveredAt||a.updatedAt||a.createdAt);
+                    const db=parseDate(b.deliveredAt||b.updatedAt||b.createdAt);
+                    return (db?.getTime()||0)-(da?.getTime()||0);
+                });
+                const countEl = document.getElementById('del-log-count');
+                if (countEl) countEl.textContent = `(${delivered.length} entries)`;
+                if (delivered.length === 0) {
+                    logBody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">No delivered orders found</td></tr>';
+                } else {
+                    logBody.innerHTML = delivered.slice(0,60).map(o => {
+                        const items  = Array.isArray(o.items)?o.items:Object.values(o.items||{});
+                        const boxes  = items.reduce((s,i)=>s+(parseInt(i.qty)||0),0);
+                        const amount = parseFloat(o.totalAmount||o.amount||0);
+                        const partner= o.deliveryName || (partnerMap[o.deliveryUid]?.name) || o.deliveryUid?.slice(0,8)||'—';
+                        const customer=o.customerName||o.customer||'—';
+                        return `<tr class="hover:bg-slate-50 transition">
+                            <td class="p-3 text-xs font-medium text-slate-500 whitespace-nowrap">${fmtDate(o.deliveredAt||o.updatedAt||o.createdAt)}</td>
+                            <td class="p-3 font-bold text-slate-800">${partner}</td>
+                            <td class="p-3 text-sm text-slate-600">${customer}</td>
+                            <td class="p-3 text-center font-black text-violet-600">${boxes||'—'}</td>
+                            <td class="p-3 text-right font-bold text-emerald-600">${amount>0?'₹'+amount.toLocaleString('en-IN'):'—'}</td>
+                            <td class="p-3 text-center"><span class="text-xs px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-700">DELIVERED</span></td>
+                        </tr>`;
+                    }).join('');
+                }
+            }
         };
+
 
         // ════════════════════════════════════════════════════
         //  REFRESH: re-render active tab when data updates
