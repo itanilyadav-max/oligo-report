@@ -1068,8 +1068,11 @@
                 <div id="receivables-list" class="sub-panel block">
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden card">
                         <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-                            <div class="font-bold text-slate-700 flex items-center gap-2">
+                            <div class="font-bold text-slate-700 flex items-center gap-3">
                                 <i class="fas fa-phone-volume text-indigo-600"></i> Client Collection List
+                                <button id="editModeBtn" onclick="toggleReceivableEditMode()" class="text-xs font-bold bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1 no-print">
+                                    <i class="fas fa-pen"></i> Edit
+                                </button>
                             </div>
                             <div class="flex flex-wrap gap-2 w-full md:w-auto no-print items-center">
                                 <select id="receivableGroupFilter" onchange="filterReceivablesList()" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer max-w-[150px]">
@@ -1174,7 +1177,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getDatabase, ref, onValue, update, push, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, update, push, set, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = { apiKey: "AIzaSyCtR2jdbu-SZ-7obmg88fPksJnNxk9BnqQ", authDomain: "oligo-store.firebaseapp.com", projectId: "oligo-store", storageBucket: "oligo-store.firebasestorage.app", messagingSenderId: "891788554016", appId: "1:891788554016:web:206c7da0a562fb7b1bf145" };
         const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getDatabase(app);
@@ -1207,31 +1210,12 @@
         window.mockLogin = () => { 
             signInWithEmailAndPassword(auth, "admin@oligo.com", "admin123").catch(e => {
                 document.getElementById('authOverlay').classList.add('hidden');
+                const fy2 = document.getElementById('filterYear'); if(fy2) fy2.value='2026';
                 initListeners();
                 updateFilterBarVisibility('sales');
             });
         };
-        auth.onAuthStateChanged(user => {
-            if(user) {
-                document.getElementById('authOverlay').classList.add('hidden');
-                initListeners();
-                updateFilterBarVisibility('sales');
-                // Auto-set year to latest year that has delivery data
-                setTimeout(() => {
-                    const orders = Object.values(DATA.orders || {});
-                    const years = new Set();
-                    orders.forEach(o => {
-                        const d = window.toDate ? window.toDate(o.deliveredAt||o.updatedAt||o.createdAt) : null;
-                        if (d && !isNaN(d)) years.add(String(d.getFullYear()));
-                    });
-                    const fy = document.getElementById('filterYear');
-                    if (fy && years.size > 0) {
-                        const latest = [...years].sort().pop();
-                        if (fy.querySelector('option[value="'+latest+'"]')) fy.value = latest;
-                    }
-                }, 800); // wait for DATA to be populated from Firebase
-            }
-        });
+        auth.onAuthStateChanged(user => { if(user) { document.getElementById('authOverlay').classList.add('hidden'); const fy = document.getElementById('filterYear'); if(fy) fy.value='2026'; initListeners(); updateFilterBarVisibility('sales'); } });
         window.logout = () => signOut(auth).then(()=> location.reload());
 
         // MOBILE SIDEBAR TOGGLE
@@ -2144,15 +2128,14 @@
         // ════════════════════════════════════════════════════
         window.renderDeliveryCharts = () => {
 
-            // ── Safe date parser (handles Firebase Timestamps too) ──
+            // ── Safe date parser ──
             const parseDate = (raw) => {
                 if (!raw) return null;
-                if (typeof raw === 'object' && raw.seconds) return new Date(raw.seconds * 1000);
-                if (typeof raw === 'number') return new Date(raw > 1e12 ? raw : raw * 1000);
+                if (typeof raw === 'number') return raw > 1e10 ? new Date(raw) : new Date(raw * 1000);
                 const s = String(raw).trim();
                 if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
-                const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-                if (dmy) return new Date(dmy[3]+'-'+dmy[2].padStart(2,'0')+'-'+dmy[1].padStart(2,'0'));
+                const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`);
                 const d = new Date(s); return isNaN(d.getTime()) ? null : d;
             };
             const fmtDate = (raw) => {
@@ -2194,12 +2177,12 @@
                 };
             });
 
-            // Count trips + boxes from DELIVERED orders — filtered by date
+            // Count trips + boxes from DELIVERED orders using deliveryUid
             Object.values(orderMap).forEach(o => {
                 if (o.status !== 'DELIVERED') return;
-                if (!passesFilter(o.deliveredAt || o.updatedAt || o.createdAt)) return;
                 const uid = o.deliveryUid;
                 if (!uid) return;
+                // Create entry if partner exists in deliveryPartners but wasn't approved (edge case)
                 if (!stats[uid]) {
                     const p = partnerMap[uid] || {};
                     stats[uid] = {
@@ -2211,17 +2194,18 @@
                     };
                 }
                 stats[uid].trips++;
+                // Count boxes from items
                 const items = Array.isArray(o.items) ? o.items : Object.values(o.items || {});
                 stats[uid].boxes += items.reduce((s, i) => s + (parseInt(i.qty) || 0), 0);
+                // Track last delivery date
                 const d = parseDate(o.deliveredAt || o.updatedAt || o.createdAt);
                 if (d && (!stats[uid].lastDate || d > stats[uid].lastDate)) stats[uid].lastDate = d;
             });
 
-            // Add expenses from partner_transactions — filtered by date
+            // Add expenses from partner_transactions (each uid has its own sub-tree)
             Object.entries(txnByUid).forEach(([uid, txns]) => {
                 if (!stats[uid]) return;
                 Object.values(txns || {}).forEach(t => {
-                    if (!passesFilter(t.dateStr || t.createdAt || t.date)) return;
                     stats[uid].expenses += parseFloat(t.amount || 0);
                 });
             });
@@ -2260,7 +2244,9 @@
             // ── Chart 2: Daily delivery trend from orders ──
             const daily = {};
             const passDate = (raw) => {
-                return passesFilter(raw);
+                if (typeof passesFilter !== 'function') return true;
+                const d = parseDate(raw); if (!d) return true;
+                return passesFilter(d.toISOString().slice(0,10));
             };
             Object.values(orderMap).filter(o => o.status==='DELIVERED').forEach(o => {
                 if (!passDate(o.deliveredAt || o.updatedAt || o.createdAt)) return;
@@ -2291,10 +2277,9 @@
                     plugins:{legend:{position:'right',labels:{boxWidth:12,font:{size:11}}}}, cutout:'60%' }
             });
 
-            // ── Chart 4: Monthly boxes — filtered ──
+            // ── Chart 4: Monthly boxes ──
             const monthly = {};
             Object.values(orderMap).filter(o=>o.status==='DELIVERED').forEach(o=>{
-                if (!passesFilter(o.deliveredAt||o.updatedAt||o.createdAt)) return;
                 const d = parseDate(o.deliveredAt||o.updatedAt||o.createdAt);
                 if(!d) return;
                 const items = Array.isArray(o.items)?o.items:Object.values(o.items||{});
@@ -2325,9 +2310,8 @@
                         const statusBadge = p.online
                             ? '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Online</span>'
                             : '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">⚫ Offline</span>';
-                        // Get expense total for this partner — filtered
-                        const partnerTxns = Object.values(txnByUid[uid] || {})
-                            .filter(t => passesFilter(t.dateStr||t.createdAt||t.date));
+                        // Get expense total for this partner
+                        const partnerTxns = Object.values(txnByUid[uid] || {});
                         const expenseTotal = partnerTxns.reduce((s,t)=>s+parseFloat(t.amount||0),0);
                         return `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                             <div class="flex items-start justify-between mb-3">
@@ -2375,9 +2359,7 @@
                         const rankColor  = i===0?'text-amber-500 font-black':i===1?'text-slate-400 font-black':i===2?'text-orange-400 font-black':'text-slate-400';
                         const onlineBadge= p.online ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500';
                         const onlineText = p.online ? '🟢 Online' : 'Offline';
-                        const expTotal   = Object.values(txnByUid[uid]||{})
-                            .filter(t=>passesFilter(t.dateStr||t.createdAt||t.date))
-                            .reduce((s,t)=>s+parseFloat(t.amount||0),0);
+                        const expTotal   = Object.values(txnByUid[uid]||{}).reduce((s,t)=>s+parseFloat(t.amount||0),0);
                         return `<tr class="hover:bg-slate-50 transition">
                             <td class="p-4 ${rankColor}">#${i+1}</td>
                             <td class="p-4">
@@ -2394,13 +2376,10 @@
                 }
             }
 
-            // ── Delivery Log from orders — filtered ──
+            // ── Delivery Log from orders ──
             const logBody = document.getElementById('deliveryLogBody');
             if (logBody) {
-                const delivered = Object.values(orderMap).filter(o =>
-                    o.status==='DELIVERED' &&
-                    passesFilter(o.deliveredAt||o.updatedAt||o.createdAt)
-                );
+                const delivered = Object.values(orderMap).filter(o => o.status==='DELIVERED');
                 delivered.sort((a,b)=>{
                     const da=parseDate(a.deliveredAt||a.updatedAt||a.createdAt);
                     const db=parseDate(b.deliveredAt||b.updatedAt||b.createdAt);
@@ -2409,7 +2388,7 @@
                 const countEl = document.getElementById('del-log-count');
                 if (countEl) countEl.textContent = `(${delivered.length} entries)`;
                 if (delivered.length === 0) {
-                    logBody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">No deliveries found for selected period</td></tr>';
+                    logBody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">No delivered orders found</td></tr>';
                 } else {
                     logBody.innerHTML = delivered.slice(0,60).map(o => {
                         const items  = Array.isArray(o.items)?o.items:Object.values(o.items||{});
@@ -2685,10 +2664,29 @@
                 'Cheque Collected to be Deposit':   'bg-indigo-100 text-indigo-700',
             };
 
+            const editMode = window._recvEditMode === true;
+
             tbody.innerHTML = records.map(([id, v]) => {
                 const sc = statusColors[v.status] || 'bg-slate-100 text-slate-600';
                 const bal = (parseFloat(v.amount) || 0) - (parseFloat(v.receivedAmount) || 0);
                 const waLink = v.phone ? `<a href="https://wa.me/91${v.phone.replace(/\D/g,'')}" target="_blank" class="ml-2 text-green-600 hover:text-green-800" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>` : '';
+
+                // Remark: truncated in view mode, full in edit mode
+                const remarkHtml = v.remark
+                    ? (editMode
+                        ? `<div class="text-xs text-slate-600 mt-1 italic bg-amber-50 border border-amber-100 rounded px-2 py-1 max-w-[240px]">"${v.remark}"</div>`
+                        : `<div class="text-xs text-slate-500 mt-1 italic max-w-[180px] truncate" title="${v.remark}">"${v.remark}"</div>`)
+                    : '';
+
+                // Action buttons: only Update in view mode; Update + Edit Amt + Delete in edit mode
+                const actionButtons = editMode
+                    ? `<div class="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button onclick="openRemarkModal('${id}')" class="action-btn bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition whitespace-nowrap"><i class="fas fa-edit mr-1"></i>Update</button>
+                            <button onclick="editReceivableAmount('${id}')" class="action-btn bg-amber-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-600 transition whitespace-nowrap"><i class="fas fa-rupee-sign mr-1"></i>Edit Amt</button>
+                            <button onclick="deleteReceivable('${id}', '${(v.name||'').replace(/'/g,"\\'")}' )" class="action-btn bg-red-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition whitespace-nowrap"><i class="fas fa-trash mr-1"></i>Delete</button>
+                       </div>`
+                    : `<button onclick="openRemarkModal('${id}')" class="action-btn bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition whitespace-nowrap"><i class="fas fa-edit mr-1"></i>Update</button>`;
+
                 return `<tr data-followup="${v.followUpDate || ''}">
                     <td class="p-4">
                         <div class="font-bold text-slate-800">${v.name || '-'}</div>
@@ -2701,16 +2699,14 @@
                     </td>
                     <td class="p-4">
                         <span class="px-2 py-1 rounded-full text-[10px] font-bold ${sc}">${v.status || 'Pending'}</span>
-                        ${v.remark ? `<div class="text-xs text-slate-500 mt-1 italic max-w-[180px] truncate" title="${v.remark}">"${v.remark}"</div>` : ''}
+                        ${remarkHtml}
                         ${v.expectedDate ? `<div class="text-[10px] text-blue-500 mt-1">Exp: ${v.expectedDate}</div>` : ''}
                     </td>
                     <td class="p-4">
                         ${v.followUpDate ? `<span class="text-xs font-bold ${new Date(v.followUpDate) < new Date() ? 'text-red-600' : 'text-slate-600'}">${v.followUpDate}</span>` : '<span class="text-xs text-slate-300">-</span>'}
                     </td>
                     <td class="p-4 text-center action-col">
-                        <button onclick="openRemarkModal('${id}')" class="action-btn bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition whitespace-nowrap">
-                            <i class="fas fa-edit mr-1"></i>Update
-                        </button>
+                        ${actionButtons}
                     </td>
                 </tr>`;
             }).join('');
@@ -2793,6 +2789,45 @@
                     renderReceivablesTable();
                     console.warn('Firebase write failed, saved locally:', err.message);
                 });
+        };
+
+        // ── RECEIVABLE EDIT MODE TOGGLE ──────────────────────
+        window._recvEditMode = false;
+        window.toggleReceivableEditMode = () => {
+            window._recvEditMode = !window._recvEditMode;
+            const btn = document.getElementById('editModeBtn');
+            if (btn) {
+                if (window._recvEditMode) {
+                    btn.innerHTML = '<i class="fas fa-check-circle"></i> Done Editing';
+                    btn.className = 'text-xs font-bold bg-emerald-600 text-white border border-emerald-600 px-3 py-1.5 rounded-lg transition flex items-center gap-1 no-print hover:bg-emerald-700';
+                } else {
+                    btn.innerHTML = '<i class="fas fa-pen"></i> Edit';
+                    btn.className = 'text-xs font-bold bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1 no-print';
+                }
+            }
+            renderReceivablesTable();
+        };
+
+        // ── DELETE RECEIVABLE ────────────────────────────────
+        window.deleteReceivable = (id, name) => {
+            if (!confirm(`Delete "${name}" from receivables?\nThis cannot be undone.`)) return;
+            remove(ref(db, 'receivables/' + id))
+                .then(() => { delete DATA.receivables[id]; renderReceivablesTable(); })
+                .catch(err => { delete DATA.receivables[id]; renderReceivablesTable(); console.warn('Firebase delete failed:', err.message); });
+        };
+
+        // ── EDIT AMOUNT DUE ──────────────────────────────────
+        window.editReceivableAmount = (id) => {
+            const v = DATA.receivables[id] || {};
+            const current = parseFloat(v.amount) || 0;
+            const newAmt = prompt(`Edit Amount Due for "${v.name || 'Client'}"\nCurrent: ₹${current.toLocaleString('en-IN')}\n\nEnter new amount:`, current);
+            if (newAmt === null) return;
+            const parsed = parseFloat(newAmt);
+            if (isNaN(parsed) || parsed < 0) { alert('Please enter a valid amount.'); return; }
+            const updated = { ...v, amount: parsed, lastUpdated: new Date().toISOString() };
+            update(ref(db, 'receivables/' + id), updated)
+                .then(() => { DATA.receivables[id] = updated; renderReceivablesTable(); })
+                .catch(err => { DATA.receivables[id] = updated; renderReceivablesTable(); console.warn('Firebase update failed:', err.message); });
         };
 
         // ── RECEIVABLES ANALYTICS ───────────────────────────
@@ -2880,32 +2915,21 @@
             to:    document.getElementById('filterTo')?.value    || '',
         });
 
-        // Universal parser — handles Firebase Timestamp obj, Unix ms, Unix sec, ISO string, DD/MM/YYYY
-        window.toDate = (raw) => {
-            if (!raw) return null;
-            if (typeof raw === 'object' && raw.seconds) return new Date(raw.seconds * 1000);
-            if (typeof raw === 'number') return new Date(raw > 1e12 ? raw : raw * 1000);
-            const s = String(raw).trim();
-            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
-            const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-            if (dmy) return new Date(dmy[3]+'-'+dmy[2].padStart(2,'0')+'-'+dmy[1].padStart(2,'0'));
-            const d = new Date(s); return isNaN(d) ? null : d;
-        };
-
-        // Returns true if the date value passes the active filter
-        window.passesFilter = (raw) => {
-            if (!raw) return true;
+        // Returns true if the ISO date string passes the active filter
+        window.passesFilter = (dateStr) => {
+            if (!dateStr) return true;
             const f = getGlobalFilter();
-            if (!f.year && !f.month && !f.from && !f.to) return true;
-            const d = window.toDate(raw);
-            if (!d || isNaN(d)) return true;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return true;
+
             const yyyy = String(d.getFullYear());
-            const mm   = String(d.getMonth()+1).padStart(2,'0');
-            const iso  = d.toISOString().slice(0,10);
-            if (f.year  && yyyy !== f.year)  return false;
-            if (f.month && mm   !== f.month) return false;
-            if (f.from  && iso  <  f.from)   return false;
-            if (f.to    && iso  >  f.to)     return false;
+            const mm   = String(d.getMonth() + 1).padStart(2, '0');
+            const iso  = d.toISOString().slice(0, 10);
+
+            if (f.year  && yyyy !== f.year)      return false;
+            if (f.month && mm   !== f.month)     return false;
+            if (f.from  && iso  <  f.from)       return false;
+            if (f.to    && iso  >  f.to)         return false;
             return true;
         };
 
