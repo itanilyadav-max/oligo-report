@@ -92,7 +92,7 @@
     <!-- REMARK MODAL (For Receivables) -->
     <div id="remarkModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
         <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50" onclick="closeModal()"></div>
-        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+        <div class="modal-container bg-white w-11/12 md:max-w-lg mx-auto rounded shadow-lg z-50 overflow-y-auto">
             <div class="modal-content py-4 text-left px-6">
                 <div class="flex justify-between items-center pb-3">
                     <p class="text-2xl font-bold text-slate-800">Add Remark</p>
@@ -101,7 +101,18 @@
                     </div>
                 </div>
                 <div class="my-5 max-h-[70vh] overflow-y-auto pr-2">
-                    <p class="mb-2 text-sm font-bold text-slate-600" id="modalClientName">Client Name</p>
+                    <p class="mb-3 text-sm font-bold text-slate-600" id="modalClientName">Client Name</p>
+
+                    <!-- ── REMARK HISTORY LOG ── -->
+                    <div id="remarkHistoryBox" class="hidden mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">📋 Conversation History</span>
+                            <span id="remarkHistoryCount" class="text-xs text-slate-400"></span>
+                        </div>
+                        <div id="remarkHistoryList" class="space-y-2 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2 bg-slate-50"></div>
+                    </div>
+
+                    <label class="block text-sm font-bold text-slate-600 mb-1">New Remark / Conversation Note</label>
                     <textarea id="remarkInput" class="w-full border border-slate-300 rounded p-2 mb-4" rows="3" placeholder="Enter conversation details..."></textarea>
                     
                     <label class="block text-sm font-bold text-slate-600 mb-1">Progress Report</label>
@@ -2177,9 +2188,17 @@
                 };
             });
 
-            // Count trips + boxes from DELIVERED orders using deliveryUid
+            // ── passDate: apply global date filter ──
+            const passDate = (raw) => {
+                if (typeof passesFilter !== 'function') return true;
+                const d = parseDate(raw); if (!d) return true;
+                return passesFilter(d.toISOString().slice(0,10));
+            };
+
+            // Count trips + boxes from DELIVERED orders — filtered by date
             Object.values(orderMap).forEach(o => {
                 if (o.status !== 'DELIVERED') return;
+                if (!passDate(o.deliveredAt || o.updatedAt || o.createdAt)) return;
                 const uid = o.deliveryUid;
                 if (!uid) return;
                 // Create entry if partner exists in deliveryPartners but wasn't approved (edge case)
@@ -2202,10 +2221,11 @@
                 if (d && (!stats[uid].lastDate || d > stats[uid].lastDate)) stats[uid].lastDate = d;
             });
 
-            // Add expenses from partner_transactions (each uid has its own sub-tree)
+            // Add expenses from partner_transactions — filtered by date
             Object.entries(txnByUid).forEach(([uid, txns]) => {
                 if (!stats[uid]) return;
                 Object.values(txns || {}).forEach(t => {
+                    if (!passDate(t.createdAt || t.date || t.dateStr)) return;
                     stats[uid].expenses += parseFloat(t.amount || 0);
                 });
             });
@@ -2243,11 +2263,6 @@
 
             // ── Chart 2: Daily delivery trend from orders ──
             const daily = {};
-            const passDate = (raw) => {
-                if (typeof passesFilter !== 'function') return true;
-                const d = parseDate(raw); if (!d) return true;
-                return passesFilter(d.toISOString().slice(0,10));
-            };
             Object.values(orderMap).filter(o => o.status==='DELIVERED').forEach(o => {
                 if (!passDate(o.deliveredAt || o.updatedAt || o.createdAt)) return;
                 const d = parseDate(o.deliveredAt || o.updatedAt || o.createdAt);
@@ -2310,9 +2325,8 @@
                         const statusBadge = p.online
                             ? '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Online</span>'
                             : '<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">⚫ Offline</span>';
-                        // Get expense total for this partner
-                        const partnerTxns = Object.values(txnByUid[uid] || {});
-                        const expenseTotal = partnerTxns.reduce((s,t)=>s+parseFloat(t.amount||0),0);
+                        // Use pre-filtered expenses from stats (respects date filter)
+                        const expenseTotal = p.expenses || 0;
                         return `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                             <div class="flex items-start justify-between mb-3">
                                 <div>
@@ -2359,7 +2373,7 @@
                         const rankColor  = i===0?'text-amber-500 font-black':i===1?'text-slate-400 font-black':i===2?'text-orange-400 font-black':'text-slate-400';
                         const onlineBadge= p.online ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500';
                         const onlineText = p.online ? '🟢 Online' : 'Offline';
-                        const expTotal   = Object.values(txnByUid[uid]||{}).reduce((s,t)=>s+parseFloat(t.amount||0),0);
+                        const expTotal   = stats[uid]?.expenses || 0;
                         return `<tr class="hover:bg-slate-50 transition">
                             <td class="p-4 ${rankColor}">#${i+1}</td>
                             <td class="p-4">
@@ -2379,7 +2393,7 @@
             // ── Delivery Log from orders ──
             const logBody = document.getElementById('deliveryLogBody');
             if (logBody) {
-                const delivered = Object.values(orderMap).filter(o => o.status==='DELIVERED');
+                const delivered = Object.values(orderMap).filter(o => o.status==='DELIVERED' && passDate(o.deliveredAt || o.updatedAt || o.createdAt));
                 delivered.sort((a,b)=>{
                     const da=parseDate(a.deliveredAt||a.updatedAt||a.createdAt);
                     const db=parseDate(b.deliveredAt||b.updatedAt||b.createdAt);
@@ -2686,7 +2700,6 @@
                             <button onclick="deleteReceivable('${id}', '${(v.name||'').replace(/'/g,"\\'")}' )" class="action-btn bg-red-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition whitespace-nowrap"><i class="fas fa-trash mr-1"></i>Delete</button>
                        </div>`
                     : `<button onclick="openRemarkModal('${id}')" class="action-btn bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition whitespace-nowrap"><i class="fas fa-edit mr-1"></i>Update</button>`;
-
                 return `<tr data-followup="${v.followUpDate || ''}">
                     <td class="p-4">
                         <div class="font-bold text-slate-800">${v.name || '-'}</div>
@@ -2734,7 +2747,7 @@
             _currentRemarkId = id;
             const v = DATA.receivables[id] || {};
             document.getElementById('modalClientName').textContent    = v.name || 'Client';
-            document.getElementById('remarkInput').value              = v.remark || '';
+            document.getElementById('remarkInput').value              = '';  // always blank for new entry
             document.getElementById('statusInput').value              = v.status || 'Pending';
             document.getElementById('subscriptionInput').value        = v.subscription || 'Not subscription';
             document.getElementById('ledgerStatusInput').value        = v.ledgerStatus || 'Not Send';
@@ -2742,7 +2755,37 @@
             document.getElementById('stampedBillInput').value         = v.stampedBill || 'Not Needed';
             document.getElementById('expectedDateInput').value        = v.expectedDate || '';
             document.getElementById('followUpDateInput').value        = v.followUpDate || '';
-            document.getElementById('receivedInput').value            = v.receivedAmount || '';
+            document.getElementById('receivedInput').value            = '';  // always blank for new entry
+
+            // ── Load remark history log ──
+            const historyBox  = document.getElementById('remarkHistoryBox');
+            const historyList = document.getElementById('remarkHistoryList');
+            const historyCount= document.getElementById('remarkHistoryCount');
+            const log = Array.isArray(v.remarksLog) ? v.remarksLog : [];
+            // Also include old single remark as first entry if no log exists yet
+            if (log.length === 0 && v.remark) {
+                log.push({ text: v.remark, date: v.lastUpdated || '', status: v.status || '' });
+            }
+            if (log.length > 0) {
+                historyBox.classList.remove('hidden');
+                historyCount.textContent = log.length + ' note' + (log.length > 1 ? 's' : '');
+                // Show newest first
+                historyList.innerHTML = [...log].reverse().map(entry => {
+                    const d = entry.date ? new Date(entry.date).toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '—';
+                    const statusBadge = entry.status ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 ml-1">${entry.status}</span>` : '';
+                    return `<div class="bg-white border border-slate-200 rounded-lg px-3 py-2">
+                        <div class="flex items-center gap-1 mb-1">
+                            <span class="text-[10px] font-bold text-slate-400">${d}</span>
+                            ${statusBadge}
+                        </div>
+                        <p class="text-xs text-slate-700 leading-relaxed">${entry.text}</p>
+                    </div>`;
+                }).join('');
+            } else {
+                historyBox.classList.add('hidden');
+                historyList.innerHTML = '';
+            }
+
             // Show modal
             const modal = document.getElementById('remarkModal');
             modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -2760,11 +2803,24 @@
             const existing = DATA.receivables[_currentRemarkId] || {};
             const receivedToday = parseFloat(document.getElementById('receivedInput').value) || 0;
             const totalReceived = (parseFloat(existing.receivedAmount) || 0) + receivedToday;
+            const newRemarkText = document.getElementById('remarkInput').value.trim();
+            const newStatus     = document.getElementById('statusInput').value;
+
+            // ── Append to remarksLog (dated history) ──
+            const existingLog = Array.isArray(existing.remarksLog) ? existing.remarksLog : [];
+            // Migrate old single remark into log if first time
+            if (existingLog.length === 0 && existing.remark) {
+                existingLog.push({ text: existing.remark, date: existing.lastUpdated || new Date().toISOString(), status: existing.status || '' });
+            }
+            if (newRemarkText) {
+                existingLog.push({ text: newRemarkText, date: new Date().toISOString(), status: newStatus });
+            }
 
             const updated = {
                 ...existing,
-                remark:         document.getElementById('remarkInput').value.trim(),
-                status:         document.getElementById('statusInput').value,
+                remark:         newRemarkText || (existingLog.length ? existingLog[existingLog.length-1].text : ''),
+                remarksLog:     existingLog,
+                status:         newStatus,
                 subscription:   document.getElementById('subscriptionInput').value,
                 ledgerStatus:   document.getElementById('ledgerStatusInput').value,
                 ledgerOn:       document.getElementById('ledgerOnInput').value,
@@ -2783,7 +2839,6 @@
                     renderReceivablesTable();
                 })
                 .catch(err => {
-                    // Fallback to local if Firebase write fails
                     DATA.receivables[_currentRemarkId] = updated;
                     closeModal();
                     renderReceivablesTable();
