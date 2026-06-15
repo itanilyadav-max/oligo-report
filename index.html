@@ -2756,6 +2756,21 @@
                             <button onclick="deleteReceivable('${id}', '${(v.name||'').replace(/'/g,"\\'")}' )" class="action-btn bg-red-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition whitespace-nowrap"><i class="fas fa-trash mr-1"></i>Delete</button>
                        </div>`
                     : `<button onclick="openRemarkModal('${id}')" class="action-btn bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition whitespace-nowrap"><i class="fas fa-edit mr-1"></i>Update</button>`;
+                // ── Compact info tags for at-a-glance view ──
+                const infoTags = [];
+                if (v.receivedAmount > 0) infoTags.push({bg:'bg-emerald-100',tx:'text-emerald-700',label:`💰 Rcvd ₹${parseFloat(v.receivedAmount).toLocaleString('en-IN')}`});
+                if (v.expectedDate)        infoTags.push({bg:'bg-blue-100',   tx:'text-blue-700',   label:`📅 Exp ${v.expectedDate}`});
+                if (v.followUpDate)        infoTags.push({bg:'bg-amber-100',  tx:'text-amber-700',  label:`🔔 ${v.followUpDate}`});
+                if (v.subscription && v.subscription !== 'Not subscription') infoTags.push({bg:'bg-violet-100',tx:'text-violet-700',label:'🔁 Subscribed'});
+                if (v.stampedBill === 'Needed')   infoTags.push({bg:'bg-orange-100',tx:'text-orange-700',label:'🧾 Stamp Needed'});
+                if (v.ledgerStatus === 'Send')     infoTags.push({bg:'bg-teal-100',  tx:'text-teal-700',  label:'📒 Ledger Sent'});
+                if (v.ledgerStatus === 'Not Send') infoTags.push({bg:'bg-red-50',    tx:'text-red-500',   label:'📒 Ledger Pending'});
+                if (v.ledgerOn && v.ledgerOn !== 'Both') infoTags.push({bg:'bg-slate-100',tx:'text-slate-500',label:`via ${v.ledgerOn}`});
+
+                const infoStrip = infoTags.length
+                    ? `<div class="flex flex-wrap gap-1 mt-2">${infoTags.map(t=>`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${t.bg} ${t.tx} whitespace-nowrap">${t.label}</span>`).join('')}</div>`
+                    : '';
+
                 return `<tr data-followup="${v.followUpDate || ''}">
                     <td class="p-4">
                         <div class="font-bold text-slate-800">${v.name || '-'}</div>
@@ -2769,7 +2784,7 @@
                     <td class="p-4">
                         <span class="px-2 py-1 rounded-full text-[10px] font-bold ${sc}">${v.status || 'Pending'}</span>
                         ${remarkHtml}
-                        ${v.expectedDate ? `<div class="text-[10px] text-blue-500 mt-1">Exp: ${v.expectedDate}</div>` : ''}
+                        ${infoStrip}
                     </td>
                     <td class="p-4">
                         ${v.followUpDate ? `<span class="text-xs font-bold ${new Date(v.followUpDate) < new Date() ? 'text-red-600' : 'text-slate-600'}">${v.followUpDate}</span>` : '<span class="text-xs text-slate-300">-</span>'}
