@@ -90,82 +90,138 @@
     </div>
 
     <!-- REMARK MODAL (For Receivables) -->
-    <div id="remarkModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50" onclick="closeModal()"></div>
-        <div class="modal-container bg-white w-11/12 md:max-w-lg mx-auto rounded shadow-lg z-50 overflow-y-auto">
-            <div class="modal-content py-4 text-left px-6">
-                <div class="flex justify-between items-center pb-3">
-                    <p class="text-2xl font-bold text-slate-800">Add Remark</p>
-                    <div class="modal-close cursor-pointer z-50" onclick="closeModal()">
-                        <i class="fas fa-times text-slate-500"></i>
-                    </div>
+    <!-- ═══════════════════════════════════════════════════════
+         SIDE DRAWER — Client Conversation Panel
+         Slides in from the right, table stays visible behind
+    ════════════════════════════════════════════════════════ -->
+    <!-- Backdrop -->
+    <div id="drawerBackdrop" onclick="closeModal()" class="hidden fixed inset-0 bg-black/40 z-40 transition-opacity"></div>
+
+    <!-- Drawer panel -->
+    <div id="remarkModal" class="fixed top-0 right-0 h-full w-full md:w-[480px] bg-white shadow-2xl z-50 flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out">
+
+        <!-- ── Header ── -->
+        <div class="flex-shrink-0 bg-gradient-to-r from-slate-800 to-slate-900 text-white px-5 py-4">
+            <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Client</p>
+                    <h2 class="text-xl font-black truncate" id="modalClientName">Client Name</h2>
+                    <div id="drawerClientMeta" class="text-xs text-slate-300 mt-1 flex items-center gap-3"></div>
                 </div>
-                <div class="my-5 max-h-[70vh] overflow-y-auto pr-2">
-                    <p class="mb-3 text-sm font-bold text-slate-600" id="modalClientName">Client Name</p>
+                <button onclick="closeModal()" class="ml-3 flex-shrink-0 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition">
+                    <i class="fas fa-times text-white"></i>
+                </button>
+            </div>
+            <!-- Quick KPIs -->
+            <div class="grid grid-cols-3 gap-2 mt-3">
+                <div class="bg-white/10 rounded-xl p-2 text-center">
+                    <div class="text-sm font-black text-red-300" id="drawerAmtDue">₹0</div>
+                    <div class="text-[10px] text-slate-400">Amount Due</div>
+                </div>
+                <div class="bg-white/10 rounded-xl p-2 text-center">
+                    <div class="text-sm font-black text-emerald-300" id="drawerAmtRcvd">₹0</div>
+                    <div class="text-[10px] text-slate-400">Received</div>
+                </div>
+                <div class="bg-white/10 rounded-xl p-2 text-center">
+                    <div id="drawerStatus" class="text-[10px] font-black text-amber-300 leading-tight">—</div>
+                    <div class="text-[10px] text-slate-400">Status</div>
+                </div>
+            </div>
+        </div>
 
-                    <!-- ── REMARK HISTORY LOG ── -->
-                    <div id="remarkHistoryBox" class="hidden mb-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">📋 Conversation History</span>
-                            <span id="remarkHistoryCount" class="text-xs text-slate-400"></span>
-                        </div>
-                        <div id="remarkHistoryList" class="space-y-2 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2 bg-slate-50"></div>
-                    </div>
+        <!-- ── Conversation Log ── -->
+        <div class="flex-shrink-0 bg-indigo-50 border-b border-indigo-100 px-5 py-2 flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-700 flex items-center gap-1"><i class="fas fa-comments"></i> Conversation History</span>
+            <span id="remarkHistoryCount" class="text-xs text-indigo-400 font-bold"></span>
+        </div>
+        <div id="remarkHistoryList" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50"></div>
 
-                    <label class="block text-sm font-bold text-slate-600 mb-1">New Remark / Conversation Note</label>
-                    <textarea id="remarkInput" class="w-full border border-slate-300 rounded p-2 mb-4" rows="3" placeholder="Enter conversation details..."></textarea>
-                    
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Progress Report</label>
-                    <select id="statusInput" class="w-full border border-slate-300 rounded p-2 mb-4">
+        <!-- ── Add New Note ── -->
+        <div class="flex-shrink-0 border-t border-slate-200 bg-white px-5 py-4 space-y-3">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">➕ Add New Note</p>
+
+            <textarea id="remarkInput" rows="3"
+                class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400 resize-none bg-slate-50 placeholder-slate-400"
+                placeholder="What was discussed? e.g. Called Manish, confirmed payment by 15th..."></textarea>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Status</label>
+                    <select id="statusInput" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
                         <option value="Pending">Pending</option>
                         <option value="Confirmed Payment">Confirmed Payment</option>
                         <option value="Not Answering">Not Answering</option>
-                        <option value="Invoice Verification Before Payment">Invoice Verification Before Payment</option>
+                        <option value="Invoice Verification Before Payment">Invoice Verification</option>
                         <option value="Payment Ready">Payment Ready</option>
                         <option value="Cheque to be Collected">Cheque to be Collected</option>
-                        <option value="Payment Done to Bank Account">Payment Done to Bank Account</option>
-                        <option value="Cheque Collected to be Deposit">Cheque Collected to be Deposit</option>
+                        <option value="Payment Done to Bank Account">Payment Done</option>
+                        <option value="Cheque Collected to be Deposit">Cheque Collected</option>
                     </select>
-
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Subscription or not</label>
-                    <select id="subscriptionInput" class="w-full border border-slate-300 rounded p-2 mb-4">
-                        <option value="Not subscription">Not subscription</option>
-                        <option value="subscription">subscription</option>
-                    </select>
-
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Ledger / Sale Report Status</label>
-                    <select id="ledgerStatusInput" class="w-full border border-slate-300 rounded p-2 mb-4">
-                        <option value="Not Send">Not Send</option>
-                        <option value="Send">Send</option>
-                    </select>
-
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Ledger / Sale Report Status on</label>
-                    <select id="ledgerOnInput" class="w-full border border-slate-300 rounded p-2 mb-4">
-                        <option value="Both">Both</option>
-                        <option value="What's App">What's App</option>
-                        <option value="E mail">E mail</option>
-                    </select>
-
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Stamped Bill Need</label>
-                    <select id="stampedBillInput" class="w-full border border-slate-300 rounded p-2 mb-4">
-                        <option value="Not Needed">Not Needed</option>
-                        <option value="Needed">Needed</option>
-                    </select>
-
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Payment Expected Date</label>
-                    <!-- CALENDAR INPUT -->
-                    <input type="date" id="expectedDateInput" class="w-full border border-slate-300 rounded p-2 mb-4">
-
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Next Follow-up Date</label>
-                    <input type="date" id="followUpDateInput" class="w-full border border-slate-300 rounded p-2 mb-4">
-                    
-                    <label class="block text-sm font-bold text-slate-600 mb-1">Amount Received Today (Optional)</label>
-                    <input type="number" id="receivedInput" class="w-full border border-slate-300 rounded p-2" placeholder="0">
                 </div>
-                <div class="flex justify-end pt-2">
-                    <button onclick="saveRemark()" class="px-4 py-2 bg-slate-900 text-white font-bold rounded hover:bg-black w-full">Save Entry</button>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Amount Received Today</label>
+                    <input type="number" id="receivedInput" placeholder="₹ 0"
+                        class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
                 </div>
             </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Next Follow-up</label>
+                    <input type="date" id="followUpDateInput"
+                        class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Payment Expected</label>
+                    <input type="date" id="expectedDateInput"
+                        class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                </div>
+            </div>
+
+            <!-- Collapsed secondary fields -->
+            <details class="text-xs">
+                <summary class="cursor-pointer text-slate-400 hover:text-slate-600 font-bold select-none">More options ▸</summary>
+                <div class="mt-2 space-y-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Subscription</label>
+                            <select id="subscriptionInput" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white">
+                                <option value="Not subscription">Not subscription</option>
+                                <option value="subscription">subscription</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Stamped Bill</label>
+                            <select id="stampedBillInput" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white">
+                                <option value="Not Needed">Not Needed</option>
+                                <option value="Needed">Needed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Ledger Status</label>
+                            <select id="ledgerStatusInput" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white">
+                                <option value="Not Send">Not Send</option>
+                                <option value="Send">Send</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Ledger On</label>
+                            <select id="ledgerOnInput" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white">
+                                <option value="Both">Both</option>
+                                <option value="What's App">WhatsApp</option>
+                                <option value="E mail">Email</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <button onclick="saveRemark()"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-200">
+                <i class="fas fa-paper-plane"></i> Save Note
+            </button>
         </div>
     </div>
 
@@ -2746,55 +2802,90 @@
         window.openRemarkModal = (id) => {
             _currentRemarkId = id;
             const v = DATA.receivables[id] || {};
-            document.getElementById('modalClientName').textContent    = v.name || 'Client';
-            document.getElementById('remarkInput').value              = '';  // always blank for new entry
-            document.getElementById('statusInput').value              = v.status || 'Pending';
-            document.getElementById('subscriptionInput').value        = v.subscription || 'Not subscription';
-            document.getElementById('ledgerStatusInput').value        = v.ledgerStatus || 'Not Send';
-            document.getElementById('ledgerOnInput').value            = v.ledgerOn || 'Both';
-            document.getElementById('stampedBillInput').value         = v.stampedBill || 'Not Needed';
-            document.getElementById('expectedDateInput').value        = v.expectedDate || '';
-            document.getElementById('followUpDateInput').value        = v.followUpDate || '';
-            document.getElementById('receivedInput').value            = '';  // always blank for new entry
 
-            // ── Load remark history log ──
-            const historyBox  = document.getElementById('remarkHistoryBox');
-            const historyList = document.getElementById('remarkHistoryList');
-            const historyCount= document.getElementById('remarkHistoryCount');
-            const log = Array.isArray(v.remarksLog) ? v.remarksLog : [];
-            // Also include old single remark as first entry if no log exists yet
+            // ── Header ──
+            document.getElementById('modalClientName').textContent = v.name || 'Client';
+            const meta = document.getElementById('drawerClientMeta');
+            if (meta) {
+                const waLink = v.phone ? `<a href="https://wa.me/91${v.phone.replace(/\D/g,'')}" target="_blank" class="hover:text-white underline">📞 ${v.phone}</a>` : '';
+                meta.innerHTML = [waLink, v.group ? `🏷 ${v.group}` : ''].filter(Boolean).join(' · ');
+            }
+            const amt  = parseFloat(v.amount) || 0;
+            const rcvd = parseFloat(v.receivedAmount) || 0;
+            const setEl = (id,t) => { const el=document.getElementById(id); if(el) el.textContent=t; };
+            setEl('drawerAmtDue',  '₹' + (amt - rcvd).toLocaleString('en-IN'));
+            setEl('drawerAmtRcvd', '₹' + rcvd.toLocaleString('en-IN'));
+            setEl('drawerStatus',  v.status || '—');
+
+            // ── Form fields ──
+            document.getElementById('remarkInput').value        = '';
+            document.getElementById('statusInput').value        = v.status || 'Pending';
+            document.getElementById('subscriptionInput').value  = v.subscription || 'Not subscription';
+            document.getElementById('ledgerStatusInput').value  = v.ledgerStatus || 'Not Send';
+            document.getElementById('ledgerOnInput').value      = v.ledgerOn || 'Both';
+            document.getElementById('stampedBillInput').value   = v.stampedBill || 'Not Needed';
+            document.getElementById('expectedDateInput').value  = v.expectedDate || '';
+            document.getElementById('followUpDateInput').value  = v.followUpDate || '';
+            document.getElementById('receivedInput').value      = '';
+
+            // ── Conversation history ──
+            const historyList  = document.getElementById('remarkHistoryList');
+            const historyCount = document.getElementById('remarkHistoryCount');
+            const log = Array.isArray(v.remarksLog) ? [...v.remarksLog] : [];
             if (log.length === 0 && v.remark) {
                 log.push({ text: v.remark, date: v.lastUpdated || '', status: v.status || '' });
             }
-            if (log.length > 0) {
-                historyBox.classList.remove('hidden');
-                historyCount.textContent = log.length + ' note' + (log.length > 1 ? 's' : '');
-                // Show newest first
-                historyList.innerHTML = [...log].reverse().map(entry => {
-                    const d = entry.date ? new Date(entry.date).toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '—';
-                    const statusBadge = entry.status ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 ml-1">${entry.status}</span>` : '';
-                    return `<div class="bg-white border border-slate-200 rounded-lg px-3 py-2">
-                        <div class="flex items-center gap-1 mb-1">
-                            <span class="text-[10px] font-bold text-slate-400">${d}</span>
-                            ${statusBadge}
+            historyCount.textContent = log.length ? log.length + ' note' + (log.length > 1 ? 's' : '') : 'No notes yet';
+
+            const statusColor = s => {
+                if (!s) return 'bg-slate-100 text-slate-500';
+                if (s.includes('Payment Done') || s.includes('Confirmed')) return 'bg-green-100 text-green-700';
+                if (s.includes('Not Answering')) return 'bg-red-100 text-red-600';
+                if (s.includes('Ready') || s.includes('Cheque')) return 'bg-amber-100 text-amber-700';
+                return 'bg-indigo-100 text-indigo-700';
+            };
+
+            historyList.innerHTML = log.length === 0
+                ? `<div class="text-center py-8 text-slate-400">
+                       <i class="fas fa-comments text-3xl mb-2 block opacity-30"></i>
+                       <p class="text-sm">No conversation notes yet.</p>
+                       <p class="text-xs mt-1">Add your first note below.</p>
+                   </div>`
+                : [...log].reverse().map((entry, i) => {
+                    const d = entry.date
+                        ? new Date(entry.date).toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'})
+                        : '—';
+                    const isLatest = i === 0;
+                    return `<div class="bg-white rounded-xl border ${isLatest ? 'border-indigo-200 shadow-sm' : 'border-slate-100'} p-3">
+                        <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
+                            <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1">
+                                <i class="fas fa-clock text-slate-300"></i> ${d}
+                                ${isLatest ? '<span class="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black ml-1">LATEST</span>' : ''}
+                            </span>
+                            ${entry.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor(entry.status)}">${entry.status}</span>` : ''}
                         </div>
-                        <p class="text-xs text-slate-700 leading-relaxed">${entry.text}</p>
+                        <p class="text-sm text-slate-700 leading-relaxed">${entry.text}</p>
                     </div>`;
                 }).join('');
-            } else {
-                historyBox.classList.add('hidden');
-                historyList.innerHTML = '';
-            }
 
-            // Show modal
-            const modal = document.getElementById('remarkModal');
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            document.body.classList.add('modal-active');
+            // ── Slide drawer in ──
+            const drawer   = document.getElementById('remarkModal');
+            const backdrop = document.getElementById('drawerBackdrop');
+            backdrop.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                drawer.classList.remove('translate-x-full');
+                drawer.classList.add('translate-x-0');
+            });
+            document.body.style.overflow = 'hidden';
         };
 
         window.closeModal = () => {
-            document.getElementById('remarkModal').classList.add('opacity-0', 'pointer-events-none');
-            document.body.classList.remove('modal-active');
+            const drawer   = document.getElementById('remarkModal');
+            const backdrop = document.getElementById('drawerBackdrop');
+            drawer.classList.add('translate-x-full');
+            drawer.classList.remove('translate-x-0');
+            backdrop.classList.add('hidden');
+            document.body.style.overflow = '';
             _currentRemarkId = null;
         };
 
@@ -2807,8 +2898,7 @@
             const newStatus     = document.getElementById('statusInput').value;
 
             // ── Append to remarksLog (dated history) ──
-            const existingLog = Array.isArray(existing.remarksLog) ? existing.remarksLog : [];
-            // Migrate old single remark into log if first time
+            const existingLog = Array.isArray(existing.remarksLog) ? [...existing.remarksLog] : [];
             if (existingLog.length === 0 && existing.remark) {
                 existingLog.push({ text: existing.remark, date: existing.lastUpdated || new Date().toISOString(), status: existing.status || '' });
             }
@@ -2831,19 +2921,20 @@
                 lastUpdated:    new Date().toISOString(),
             };
 
-            // Save to Firebase
+            const afterSave = () => {
+                DATA.receivables[_currentRemarkId] = updated;
+                renderReceivablesTable();
+                // Clear note input + receipt, stay open, refresh history
+                document.getElementById('remarkInput').value  = '';
+                document.getElementById('receivedInput').value = '';
+                // Re-open drawer with updated data to refresh log
+                const savedId = _currentRemarkId;
+                openRemarkModal(savedId);
+            };
+
             update(ref(db, 'receivables/' + _currentRemarkId), updated)
-                .then(() => {
-                    DATA.receivables[_currentRemarkId] = updated;
-                    closeModal();
-                    renderReceivablesTable();
-                })
-                .catch(err => {
-                    DATA.receivables[_currentRemarkId] = updated;
-                    closeModal();
-                    renderReceivablesTable();
-                    console.warn('Firebase write failed, saved locally:', err.message);
-                });
+                .then(afterSave)
+                .catch(err => { console.warn('Firebase write failed, saved locally:', err.message); afterSave(); });
         };
 
         // ── RECEIVABLE EDIT MODE TOGGLE ──────────────────────
