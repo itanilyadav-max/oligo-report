@@ -537,6 +537,46 @@
                     </div>
                 </div>
 
+                <!-- ══ FEATURE 1: Week-on-Week + Day Heatmap + New vs Returning ══ -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <!-- Week-on-Week card -->
+                    <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-5 text-white shadow-lg">
+                        <p class="text-xs font-bold text-emerald-200 uppercase tracking-wider mb-1">📦 This Week vs Last Week</p>
+                        <div class="flex items-end gap-3 mt-2">
+                            <div>
+                                <div class="text-3xl font-black" id="kpi-wow-boxes">—</div>
+                                <div class="text-xs text-emerald-200 mt-0.5">boxes this week</div>
+                            </div>
+                            <div class="mb-1">
+                                <div class="text-2xl font-black" id="kpi-wow-pct">—</div>
+                                <div class="text-xs text-emerald-200">vs last week (<span id="kpi-wow-vs">—</span>)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Best/Worst boxes mini -->
+                    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">📊 Auto Growth Rate (MoM)</p>
+                        <div class="text-3xl font-black text-slate-800" id="growth-mom-pct">—</div>
+                        <div class="text-xs text-slate-400 mt-2">vs previous month</div>
+                        <div class="mt-3 space-y-1">
+                            <div class="flex justify-between text-xs"><span class="text-emerald-600 font-bold">🏆 Best</span><span id="growth-best-month" class="text-slate-600 font-bold text-right">—</span></div>
+                            <div class="flex justify-between text-xs"><span class="text-red-500 font-bold">📉 Worst</span><span id="growth-worst-month" class="text-slate-600 font-bold text-right">—</span></div>
+                            <div class="flex justify-between text-xs"><span class="text-indigo-600 font-bold">🔮 Projected</span><span id="growth-projected" class="text-slate-600 font-bold">—</span></div>
+                        </div>
+                    </div>
+                    <!-- New vs Returning mini -->
+                    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">👥 New vs Returning</p>
+                        <div class="h-32 relative"><canvas id="newVsReturnChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Day-of-Week Heatmap -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mt-4">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">📅 Avg Boxes by Day of Week (Orders)</p>
+                    <div class="grid grid-cols-7 gap-2" id="dowHeatmapBody"></div>
+                </div>
+
                 <!-- REFERRAL PROGRAM -->
                 <div id="sales-referrals" class="sub-panel hidden">
                     
@@ -864,6 +904,44 @@
                     </div>
                 </div>
 
+                <!-- ══ FEATURE 4+5: Auto Growth Rate + MoM Chart ══ -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <!-- MoM Growth Rate chart -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-700">📈 Month-on-Month Growth Rate</h3>
+                            <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Auto calculated</span>
+                        </div>
+                        <div class="h-56 relative"><canvas id="growthRateChart"></canvas></div>
+                    </div>
+                    <!-- Best/Worst/Projected summary -->
+                    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white shadow-lg">
+                        <h3 class="font-bold text-slate-300 text-sm uppercase tracking-wider mb-5">📊 Auto Insights</h3>
+                        <div class="space-y-4">
+                            <div class="bg-white/10 rounded-xl p-4">
+                                <div class="text-xs text-slate-400 font-bold uppercase mb-1">MoM Growth</div>
+                                <div class="text-3xl font-black" id="growth-mom-pct-2">—</div>
+                                <div class="text-xs text-slate-400 mt-1">vs previous month</div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-emerald-500/20 rounded-xl p-3">
+                                    <div class="text-[10px] text-emerald-300 font-bold uppercase mb-1">🏆 Best Month</div>
+                                    <div class="text-sm font-black text-emerald-300" id="growth-best-month-2">—</div>
+                                </div>
+                                <div class="bg-red-500/20 rounded-xl p-3">
+                                    <div class="text-[10px] text-red-300 font-bold uppercase mb-1">📉 Worst Month</div>
+                                    <div class="text-sm font-black text-red-300" id="growth-worst-month-2">—</div>
+                                </div>
+                            </div>
+                            <div class="bg-indigo-500/20 rounded-xl p-3">
+                                <div class="text-[10px] text-indigo-300 font-bold uppercase mb-1">🔮 Next Month Projection</div>
+                                <div class="text-xl font-black text-indigo-200" id="growth-projected-2">—</div>
+                                <div class="text-[10px] text-slate-400 mt-1">Based on last 3 months trend</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <!-- 3. FARM & PRODUCTION -->
@@ -903,6 +981,31 @@
                 </div>
                 <div id="production-yield" class="sub-panel hidden">
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 card"><h3 class="font-bold text-slate-800 mb-4">Harvest Efficiency (Grams per Tray)</h3><div class="h-80 relative"><canvas id="yieldChart"></canvas></div></div>
+
+                    <!-- ══ FEATURE 2: Monthly Harvest + Cycle Time + Success Rate ══ -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-slate-700">🌱 Monthly Harvest — Trays & Boxes</h3>
+                                <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Last 12 months</span>
+                            </div>
+                            <div class="h-64 relative"><canvas id="monthlyHarvestChart"></canvas></div>
+                        </div>
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-slate-700">⏱ Avg Sow→Harvest Days by Variety</h3>
+                                <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Cycle time</span>
+                            </div>
+                            <div class="h-64 relative"><canvas id="cycleTimeChart"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-700">✅ Monthly Batch Success Rate</h3>
+                            <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">% Harvested vs Total Sown</span>
+                        </div>
+                        <div class="h-56 relative"><canvas id="successRateChart"></canvas></div>
+                    </div>
                 </div>
                 <!-- WASTE ANALYSIS TAB -->
                 <div id="production-waste" class="sub-panel hidden">
@@ -1023,6 +1126,22 @@
                             </div>
                             <div class="h-64 relative"><canvas id="deliveryMonthlyChart"></canvas></div>
                         </div>
+                    </div>
+
+                    <!-- ══ FEATURE 3: Partner Monthly Stacked + Weekly Heatmap ══ -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-700">📦 Partner Contribution by Month (Boxes)</h3>
+                            <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Stacked · Last 12 months</span>
+                        </div>
+                        <div class="h-64 relative"><canvas id="partnerMonthlyChart"></canvas></div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-700">📅 Weekly Delivery Pattern — Boxes per Day</h3>
+                            <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">Mon → Sun</span>
+                        </div>
+                        <div class="grid grid-cols-7 gap-2" id="deliveryDowHeatmap"></div>
                     </div>
                 </div>
 
@@ -1344,7 +1463,7 @@
 
         // DATA SYNC
         function initListeners() {
-            const refs = ['orders', 'customers', 'store_inventory', 'batches', 'production_logs', 'deliveryPartners', 'partner_transactions', 'farmCrops', 'receivables', 'referrals', 'rewards_log', 'team_comms'];
+            const refs = ['orders', 'customers', 'store_inventory', 'batches', 'production_logs', 'deliveryPartners', 'partner_transactions', 'farmCrops', 'receivables', 'referrals', 'rewards_log', 'team_comms', 'harvests'];
             refs.forEach(key => {
                 const dbKey = key === 'store_inventory' ? 'store_inventory' : (key === 'production_logs' ? 'production_logs' : key);
                 onValue(ref(db, dbKey), snap => {
@@ -1777,29 +1896,75 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
 
-            // ── Dormant clients table ──────────────────────
-            const dormBody = document.getElementById('dormantClientsBody');
-            if (dormBody) {
-                const lastOrderDate = {};
-                const orderCount = {};
-                delivered.forEach(o => {
-                    const name = o.customerName || o.customer || '?';
-                    const ts = new Date(o.createdAt || o.timestamp || 0).getTime();
-                    if (!lastOrderDate[name] || ts > lastOrderDate[name]) lastOrderDate[name] = ts;
-                    orderCount[name] = (orderCount[name] || 0) + 1;
-                });
-                const dormant = Object.entries(lastOrderDate)
-                    .map(([name, ts]) => ({ name, ts, daysInactive: Math.floor((now - ts) / 86400000), orders: orderCount[name] || 0 }))
-                    .filter(c => c.daysInactive > 30)
-                    .sort((a,b) => b.daysInactive - a.daysInactive);
-                dormBody.innerHTML = dormant.length ? dormant.slice(0,20).map(c => `
-                    <tr><td class="p-3 font-bold">${c.name}</td>
-                    <td class="p-3 text-center text-xs">${new Date(c.ts).toLocaleDateString('en-IN')}</td>
-                    <td class="p-3 text-center font-bold ${c.daysInactive > 90 ? 'text-red-600' : 'text-amber-600'}">${c.daysInactive}d</td>
-                    <td class="p-3 text-center">${c.orders}</td>
-                    <td class="p-3 text-right"><button class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">Follow Up</button></td></tr>`).join('')
-                    : '<tr><td colspan="5" class="p-4 text-center text-slate-400">No dormant clients — great retention! ✓</td></tr>';
+            // ── FEATURE 1A: Week-on-Week Box Comparison ───────
+            const nowTs   = Date.now();
+            const msDay   = 86400000;
+            const msWeek  = 7 * msDay;
+            const thisWeekBoxes = delivered.filter(o => nowTs - new Date(o.createdAt||o.timestamp||0).getTime() < msWeek)
+                .reduce((s,o) => { const items = Array.isArray(o.items)?o.items:Object.values(o.items||{}); return s + items.reduce((ss,i)=>ss+(parseInt(i.qty)||0),0); }, 0);
+            const lastWeekBoxes = delivered.filter(o => { const age = nowTs - new Date(o.createdAt||o.timestamp||0).getTime(); return age >= msWeek && age < 2*msWeek; })
+                .reduce((s,o) => { const items = Array.isArray(o.items)?o.items:Object.values(o.items||{}); return s + items.reduce((ss,i)=>ss+(parseInt(i.qty)||0),0); }, 0);
+            const wowPct  = lastWeekBoxes > 0 ? Math.round(((thisWeekBoxes - lastWeekBoxes) / lastWeekBoxes) * 100) : 0;
+            set('kpi-wow-boxes',   thisWeekBoxes);
+            set('kpi-wow-vs',      lastWeekBoxes);
+            set('kpi-wow-pct',     (wowPct >= 0 ? '▲ +' : '▼ ') + wowPct + '%');
+            const wowEl = document.getElementById('kpi-wow-pct');
+            if (wowEl) wowEl.className = 'text-2xl font-black ' + (wowPct >= 0 ? 'text-emerald-600' : 'text-red-500');
+
+            // ── FEATURE 1B: Day-of-Week Heatmap ───────────────
+            const dowTotals = [0,0,0,0,0,0,0]; // Sun=0 … Sat=6
+            const dowCounts = [0,0,0,0,0,0,0];
+            delivered.forEach(o => {
+                const d = new Date(o.createdAt||o.requestedDate||o.timestamp||Date.now());
+                const dow = d.getDay();
+                const items = Array.isArray(o.items)?o.items:Object.values(o.items||{});
+                dowTotals[dow] += items.reduce((s,i)=>s+(parseInt(i.qty)||0),0);
+                dowCounts[dow]++;
+            });
+            const dowLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            const dowAvg    = dowTotals.map((t,i) => dowCounts[i] > 0 ? Math.round(t/dowCounts[i]) : 0);
+            const maxDow    = Math.max(...dowAvg, 1);
+            const heatBody  = document.getElementById('dowHeatmapBody');
+            if (heatBody) {
+                heatBody.innerHTML = dowLabels.map((label, i) => {
+                    const pct   = Math.round((dowAvg[i] / maxDow) * 100);
+                    const color = pct > 75 ? 'bg-emerald-500' : pct > 50 ? 'bg-emerald-400' : pct > 25 ? 'bg-emerald-300' : 'bg-emerald-100';
+                    return `<div class="text-center">
+                        <div class="text-[10px] font-bold text-slate-500 mb-1">${label}</div>
+                        <div class="rounded-lg h-16 ${color} flex items-center justify-center font-black text-sm ${pct>50?'text-white':'text-emerald-700'}">${dowAvg[i]}</div>
+                        <div class="text-[9px] text-slate-400 mt-1">${dowCounts[i]} orders</div>
+                    </div>`;
+                }).join('');
             }
+
+            // ── FEATURE 1C: New vs Returning customers ─────────
+            const firstOrderMonth = {};
+            const allDelivSorted  = [...delivered].sort((a,b) => new Date(a.createdAt||a.timestamp||0) - new Date(b.createdAt||b.timestamp||0));
+            allDelivSorted.forEach(o => {
+                const name = o.customerName||o.customer||'?';
+                const mk   = new Date(o.createdAt||o.timestamp||Date.now()).toISOString().slice(0,7);
+                if (!firstOrderMonth[name]) firstOrderMonth[name] = mk;
+            });
+            const newVsReturn = {};
+            delivered.forEach(o => {
+                const name = o.customerName||o.customer||'?';
+                const mk   = new Date(o.createdAt||o.timestamp||Date.now()).toISOString().slice(0,7);
+                if (!newVsReturn[mk]) newVsReturn[mk] = { newC:0, retC:0 };
+                if (firstOrderMonth[name] === mk) newVsReturn[mk].newC++;
+                else newVsReturn[mk].retC++;
+            });
+            const nvrMonths = Object.keys(newVsReturn).sort().slice(-12);
+            safeChart('newVsReturnChart', {
+                type: 'bar',
+                data: {
+                    labels: nvrMonths.map(m => new Date(m+'-01').toLocaleString('en-IN',{month:'short',year:'2-digit'})),
+                    datasets: [
+                        { label: 'New',       data: nvrMonths.map(m=>newVsReturn[m].newC), backgroundColor:'rgba(99,102,241,0.8)',  borderRadius:4 },
+                        { label: 'Returning', data: nvrMonths.map(m=>newVsReturn[m].retC), backgroundColor:'rgba(16,185,129,0.7)', borderRadius:4 }
+                    ]
+                },
+                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}} }
+            });
         };
 
         // ════════════════════════════════════════════════════
@@ -1969,6 +2134,63 @@
                     return `<tr><td class="p-3 font-bold">${n}</td><td class="p-3 text-center font-bold text-amber-600">${avgBoxes}</td><td class="p-3 text-center">${orderCounts[n]||1}</td><td class="p-3 text-right"><button onclick="alert('Contact '+encodeURIComponent('${n}')+' for upsell')" class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold">Upsell</button></td></tr>`;
                 }).join('') : '<tr><td colspan="4" class="p-4 text-center text-slate-400">No data</td></tr>';
             }
+
+            // ── FEATURE 4+5: Auto Growth Rate + Best/Worst + Projection ──
+            const sortedMks   = Object.keys(monthlyBoxes).sort();
+            const last3       = sortedMks.slice(-3);
+            const prevMonthKey= sortedMks[sortedMks.length - 2];
+            const prevMonth   = monthlyBoxes[prevMonthKey] || 0;
+            const momPct      = prevMonth > 0 ? Math.round(((thisMonth - prevMonth)/prevMonth)*100) : 0;
+
+            // Best and worst months
+            const bestMk  = sortedMks.reduce((best,mk) => monthlyBoxes[mk]>monthlyBoxes[best] ? mk : best, sortedMks[0] || thisMonthKey);
+            const worstMk = sortedMks.reduce((worst,mk) => monthlyBoxes[mk]<monthlyBoxes[worst] ? mk : worst, sortedMks[0] || thisMonthKey);
+            const fmtMk   = mk => mk ? new Date(mk+'-01').toLocaleString('en-IN',{month:'short',year:'numeric'}) : '—';
+
+            // 3-month trend projection (simple linear regression)
+            let projectedNext = avgMonthly;
+            if (last3.length >= 2) {
+                const vals3 = last3.map(m => monthlyBoxes[m]||0);
+                const trend3 = vals3.length > 1 ? vals3[vals3.length-1] - vals3[0] : 0;
+                projectedNext = Math.max(0, Math.round(vals3[vals3.length-1] + (trend3 / Math.max(vals3.length-1,1))));
+            }
+
+            set('growth-mom-pct',      (momPct>=0?'▲ +':'▼ ') + momPct + '%');
+            set('growth-best-month',   fmtMk(bestMk)  + ' · ' + (monthlyBoxes[bestMk]||0).toLocaleString() + ' boxes');
+            set('growth-worst-month',  fmtMk(worstMk) + ' · ' + (monthlyBoxes[worstMk]||0).toLocaleString() + ' boxes');
+            set('growth-projected',    projectedNext.toLocaleString() + ' boxes');
+            // Also populate the growth tab dedicated panel elements
+            set('growth-mom-pct-2',     (momPct>=0?'▲ +':'▼ ') + momPct + '%');
+            set('growth-best-month-2',  fmtMk(bestMk)  + ' · ' + (monthlyBoxes[bestMk]||0).toLocaleString() + ' boxes');
+            set('growth-worst-month-2', fmtMk(worstMk) + ' · ' + (monthlyBoxes[worstMk]||0).toLocaleString() + ' boxes');
+            set('growth-projected-2',   projectedNext.toLocaleString() + ' boxes');
+
+            const momEl = document.getElementById('growth-mom-pct');
+            if (momEl) momEl.className = 'text-3xl font-black ' + (momPct>=0?'text-emerald-600':'text-red-500');
+
+            // Monthly growth trend chart (MoM % change)
+            const momData = sortedMks.slice(1).map((mk,i) => {
+                const prev = monthlyBoxes[sortedMks[i]] || 0;
+                const curr = monthlyBoxes[mk]||0;
+                return prev > 0 ? Math.round(((curr-prev)/prev)*100) : 0;
+            });
+            safeChart('growthRateChart', {
+                type:'bar',
+                data:{
+                    labels: sortedMks.slice(1).map(m => new Date(m+'-01').toLocaleString('en-IN',{month:'short',year:'2-digit'})),
+                    datasets:[{
+                        label:'MoM Growth %',
+                        data: momData,
+                        backgroundColor: momData.map(v => v>=0?'rgba(16,185,129,0.75)':'rgba(239,68,68,0.7)'),
+                        borderRadius:4
+                    }]
+                },
+                options:{
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{legend:{display:false}},
+                    scales:{y:{title:{display:true,text:'% Change'}, ticks:{callback:v=>v+'%'}}}
+                }
+            });
         };
 
         window.calculateGrowthTarget = () => {
@@ -2106,6 +2328,94 @@
                 const acc = s.total>0?Math.round((s.harvested/s.total)*100):0;
                 return `<div class="flex items-center gap-3 pb-3 border-b border-slate-100"><div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700">${name[0]}</div><div class="flex-1"><div class="flex justify-between text-sm font-bold"><span>${name}</span><span class="${acc>=80?'text-green-600':acc>=60?'text-amber-600':'text-red-600'}">${acc}%</span></div><div class="w-full bg-slate-100 rounded h-1.5 mt-1"><div class="h-1.5 rounded ${acc>=80?'bg-green-500':acc>=60?'bg-amber-500':'bg-red-500'}" style="width:${acc}%"></div></div><div class="text-xs text-slate-400 mt-0.5">${s.total} batches · ${s.discarded} discarded</div></div></div>`;
             }).join('') : '<p class="text-slate-400 text-sm">No farmer data</p>';
+
+            // ── FEATURE 2A: Monthly Harvest Trend (from harvests node) ──
+            // harvests/{uid}/{id} → { date, item, trays, boxes, totalYield, timestamp }
+            const allHarvests = [];
+            Object.values(DATA.harvests || {}).forEach(userHarvests => {
+                Object.values(userHarvests || {}).forEach(h => allHarvests.push(h));
+            });
+            const monthlyHarvest = {};
+            const monthlyHarvestBoxes = {};
+            allHarvests.forEach(h => {
+                const d = new Date(h.date || h.timestamp || h.createdAt || 0);
+                if (!d.getFullYear() || d.getFullYear() < 2020) return;
+                if (!passesFilter(d.toISOString().slice(0,10))) return;
+                const mk = d.toISOString().slice(0,7);
+                monthlyHarvest[mk]      = (monthlyHarvest[mk]      || 0) + (parseInt(h.trays)||0);
+                monthlyHarvestBoxes[mk] = (monthlyHarvestBoxes[mk] || 0) + (parseInt(h.boxes)||parseInt(h.totalYield)||0);
+            });
+            // Fallback: build from batches if harvests node empty
+            if (allHarvests.length === 0) {
+                batches.filter(b=>b.status==='Harvested').forEach(b => {
+                    const d = new Date(b.harvestDate||b.completedAt||b.updatedAt||b.sowDate||0);
+                    if (!d.getFullYear()) return;
+                    const mk = d.toISOString().slice(0,7);
+                    monthlyHarvest[mk]      = (monthlyHarvest[mk]      || 0) + (parseInt(b.qty)||parseInt(b.trays)||0);
+                    monthlyHarvestBoxes[mk] = (monthlyHarvestBoxes[mk] || 0) + (parseInt(b.actualYield)||0);
+                });
+            }
+            const harvestMonths = Object.keys(monthlyHarvest).sort().slice(-12);
+            safeChart('monthlyHarvestChart', {
+                type: 'bar',
+                data: {
+                    labels: harvestMonths.map(m => new Date(m+'-01').toLocaleString('en-IN',{month:'short',year:'2-digit'})),
+                    datasets: [
+                        { label: 'Trays Harvested', data: harvestMonths.map(m=>monthlyHarvest[m]||0),      backgroundColor:'rgba(16,185,129,0.8)', borderRadius:4, yAxisID:'y'  },
+                        { label: 'Boxes Produced',  data: harvestMonths.map(m=>monthlyHarvestBoxes[m]||0), backgroundColor:'rgba(99,102,241,0.6)', borderRadius:4, yAxisID:'y1' }
+                    ]
+                },
+                options: {
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{legend:{position:'top'}},
+                    scales:{
+                        y:  { beginAtZero:true, position:'left',  title:{display:true,text:'Trays'} },
+                        y1: { beginAtZero:true, position:'right', title:{display:true,text:'Boxes'}, grid:{drawOnChartArea:false} }
+                    }
+                }
+            });
+
+            // ── FEATURE 2B: Sow-to-Harvest Cycle Time per Variety ──
+            const cycleByVariety = {};
+            batches.filter(b => b.status==='Harvested' && b.sowDate && (b.harvestDate||b.completedAt||b.updatedAt)).forEach(b => {
+                const sowD  = new Date(b.sowDate);
+                const harD  = new Date(b.harvestDate||b.completedAt||b.updatedAt);
+                const days  = Math.round((harD - sowD) / 86400000);
+                if (days < 1 || days > 60) return;
+                const v = b.variety||b.crop||b.item||'Unknown';
+                if (!cycleByVariety[v]) cycleByVariety[v] = [];
+                cycleByVariety[v].push(days);
+            });
+            const cycleLabels = Object.keys(cycleByVariety);
+            const cycleAvg    = cycleLabels.map(v => Math.round(cycleByVariety[v].reduce((s,d)=>s+d,0) / cycleByVariety[v].length));
+            safeChart('cycleTimeChart', {
+                type: 'bar',
+                data: {
+                    labels: cycleLabels,
+                    datasets: [{ label:'Avg Days Sow→Harvest', data:cycleAvg, backgroundColor:'rgba(245,158,11,0.8)', borderRadius:4 }]
+                },
+                options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, title:{display:true,text:'Days'}}} }
+            });
+
+            // ── FEATURE 2C: Farm Success Rate Trend (monthly) ──
+            const successByMonth = {};
+            batches.forEach(b => {
+                const d = new Date(b.sowDate||b.createdAt||0);
+                if (!d.getFullYear()) return;
+                const mk = d.toISOString().slice(0,7);
+                if (!successByMonth[mk]) successByMonth[mk] = {total:0, ok:0};
+                successByMonth[mk].total++;
+                if (b.status==='Harvested') successByMonth[mk].ok++;
+            });
+            const srMonths = Object.keys(successByMonth).sort().slice(-12);
+            safeChart('successRateChart', {
+                type:'line',
+                data:{
+                    labels: srMonths.map(m=>new Date(m+'-01').toLocaleString('en-IN',{month:'short',year:'2-digit'})),
+                    datasets:[{ label:'Success Rate %', data:srMonths.map(m=>successByMonth[m].total>0?Math.round((successByMonth[m].ok/successByMonth[m].total)*100):0), fill:true, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', tension:0.4, pointRadius:4 }]
+                },
+                options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}}
+            });
         };
 
         window.renderWasteCharts = () => {
@@ -2476,6 +2786,72 @@
                         </tr>`;
                     }).join('');
                 }
+            }
+
+            // ── FEATURE 3A: Partner Month-by-Month Stacked Bar ──
+            // For each month, how many boxes did each partner deliver?
+            const partnerMonthly = {};   // { partnerName: { 'YYYY-MM': boxes } }
+            const allMonthsSet   = new Set();
+            Object.values(orderMap).filter(o => o.status==='DELIVERED').forEach(o => {
+                const d = parseDate(o.deliveredAt||o.updatedAt||o.createdAt);
+                if (!d) return;
+                const mk      = d.toISOString().slice(0,7);
+                const pname   = o.deliveryName || (partnerMap[o.deliveryUid]?.name) || null;
+                if (!pname) return;
+                const items   = Array.isArray(o.items)?o.items:Object.values(o.items||{});
+                const boxes   = items.reduce((s,i)=>s+(parseInt(i.qty)||0),0);
+                if (!partnerMonthly[pname]) partnerMonthly[pname] = {};
+                partnerMonthly[pname][mk] = (partnerMonthly[pname][mk]||0) + boxes;
+                allMonthsSet.add(mk);
+            });
+            const pmMonths     = [...allMonthsSet].sort().slice(-12);
+            const pmPartners   = Object.keys(partnerMonthly);
+            const pmColors     = ['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899','#0ea5e9'];
+            safeChart('partnerMonthlyChart', {
+                type: 'bar',
+                data: {
+                    labels: pmMonths.map(m => new Date(m+'-01').toLocaleString('en-IN',{month:'short',year:'2-digit'})),
+                    datasets: pmPartners.map((name,i) => ({
+                        label: name,
+                        data:  pmMonths.map(m => partnerMonthly[name][m]||0),
+                        backgroundColor: pmColors[i%pmColors.length],
+                        borderRadius: 3
+                    }))
+                },
+                options: {
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{legend:{position:'top', labels:{boxWidth:10,font:{size:10}}}},
+                    scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true, title:{display:true,text:'Boxes'}}}
+                }
+            });
+
+            // ── FEATURE 3B: Weekly Delivery Volume (Mon–Sun) ──
+            const weeklyBoxes  = [0,0,0,0,0,0,0]; // Mon=0 … Sun=6
+            const weeklyTrips  = [0,0,0,0,0,0,0];
+            Object.values(orderMap).filter(o => o.status==='DELIVERED').forEach(o => {
+                const d = parseDate(o.deliveredAt||o.updatedAt||o.createdAt);
+                if (!d) return;
+                const dow   = (d.getDay()+6)%7;  // Mon=0 … Sun=6
+                const items = Array.isArray(o.items)?o.items:Object.values(o.items||{});
+                weeklyBoxes[dow] += items.reduce((s,i)=>s+(parseInt(i.qty)||0),0);
+                weeklyTrips[dow]++;
+            });
+            const wkLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+            const maxWk    = Math.max(...weeklyBoxes, 1);
+            const dowDelBody = document.getElementById('deliveryDowHeatmap');
+            if (dowDelBody) {
+                dowDelBody.innerHTML = wkLabels.map((label,i) => {
+                    const pct   = Math.round((weeklyBoxes[i]/maxWk)*100);
+                    const color = pct>75?'bg-indigo-600':pct>50?'bg-indigo-400':pct>25?'bg-indigo-200':'bg-indigo-50';
+                    const tx    = pct>50?'text-white':'text-indigo-700';
+                    return `<div class="text-center">
+                        <div class="text-[10px] font-bold text-slate-500 mb-1">${label}</div>
+                        <div class="rounded-xl h-20 ${color} flex flex-col items-center justify-center gap-0.5 ${tx}">
+                            <span class="font-black text-sm">${weeklyBoxes[i]}</span>
+                            <span class="text-[9px] opacity-75">${weeklyTrips[i]} trips</span>
+                        </div>
+                    </div>`;
+                }).join('');
             }
         };
 
