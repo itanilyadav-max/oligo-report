@@ -1774,12 +1774,19 @@
 
         const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
 
+        // Returns the date an order should be matched against for date-range filtering.
+        // Matches the production app's logic: delivery date (requestedDate) first,
+        // falling back to placed date (createdAt/timestamp) only when requestedDate is missing.
+        // This keeps Command Center numbers consistent with the production app's Day Report
+        // for pre-orders/subscriptions placed on one day but delivered on another.
+        window.getOrderFilterDate = (o) => o.requestedDate || o.createdAt || o.timestamp;
+
         // ════════════════════════════════════════════════════
         //  1. SALES & CUSTOMERS
         // ════════════════════════════════════════════════════
         window.renderSalesCharts = () => {
             const orders = Object.values(DATA.orders || {});
-            const delivered = orders.filter(o => o.status === 'DELIVERED' && passesFilter(o.createdAt || o.timestamp));
+            const delivered = orders.filter(o => o.status === 'DELIVERED' && passesFilter(getOrderFilterDate(o)));
 
             // ── KPIs ──────────────────────────────────────
             let totalBoxes = 0, customerBoxes = {}, customerOrders = {}, productBoxes = {};
@@ -1800,7 +1807,7 @@
                     productBoxes[p] = (productBoxes[p] || 0) + (parseInt(i.qty) || 0);
                 });
 
-                const d = new Date(o.createdAt || o.timestamp || Date.now());
+                const d = new Date(getOrderFilterDate(o) || Date.now());
                 const mk = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
                 monthlyBoxes[mk] = (monthlyBoxes[mk] || 0) + boxes;
             });
@@ -1866,7 +1873,7 @@
             const allCustomers = new Set(Object.keys(customerBoxes));
 
             delivered.forEach(o => {
-                const ts = new Date(o.createdAt || o.timestamp || 0).getTime();
+                const ts = new Date(getOrderFilterDate(o) || 0).getTime();
                 const name = o.customerName || o.customer || '';
                 if (now - ts < 30 * 86400000) last30Days.add(name);
                 if (now - ts < 90 * 86400000) last90Days.add(name);
@@ -1881,7 +1888,7 @@
             // Monthly unique active customers
             const monthlyUnique = {};
             delivered.forEach(o => {
-                const d = new Date(o.createdAt || o.timestamp || Date.now());
+                const d = new Date(getOrderFilterDate(o) || Date.now());
                 const mk = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
                 if (!monthlyUnique[mk]) monthlyUnique[mk] = new Set();
                 monthlyUnique[mk].add(o.customerName || o.customer || '?');
@@ -1900,9 +1907,9 @@
             const nowTs   = Date.now();
             const msDay   = 86400000;
             const msWeek  = 7 * msDay;
-            const thisWeekBoxes = delivered.filter(o => nowTs - new Date(o.createdAt||o.timestamp||0).getTime() < msWeek)
+            const thisWeekBoxes = delivered.filter(o => nowTs - new Date(getOrderFilterDate(o) || 0).getTime() < msWeek)
                 .reduce((s,o) => { const items = Array.isArray(o.items)?o.items:Object.values(o.items||{}); return s + items.reduce((ss,i)=>ss+(parseInt(i.qty)||0),0); }, 0);
-            const lastWeekBoxes = delivered.filter(o => { const age = nowTs - new Date(o.createdAt||o.timestamp||0).getTime(); return age >= msWeek && age < 2*msWeek; })
+            const lastWeekBoxes = delivered.filter(o => { const age = nowTs - new Date(getOrderFilterDate(o) || 0).getTime(); return age >= msWeek && age < 2*msWeek; })
                 .reduce((s,o) => { const items = Array.isArray(o.items)?o.items:Object.values(o.items||{}); return s + items.reduce((ss,i)=>ss+(parseInt(i.qty)||0),0); }, 0);
             const wowPct  = lastWeekBoxes > 0 ? Math.round(((thisWeekBoxes - lastWeekBoxes) / lastWeekBoxes) * 100) : 0;
             set('kpi-wow-boxes',   thisWeekBoxes);
@@ -1915,7 +1922,7 @@
             const dowTotals = [0,0,0,0,0,0,0]; // Sun=0 … Sat=6
             const dowCounts = [0,0,0,0,0,0,0];
             delivered.forEach(o => {
-                const d = new Date(o.createdAt||o.requestedDate||o.timestamp||Date.now());
+                const d = new Date(getOrderFilterDate(o) || Date.now());
                 const dow = d.getDay();
                 const items = Array.isArray(o.items)?o.items:Object.values(o.items||{});
                 dowTotals[dow] += items.reduce((s,i)=>s+(parseInt(i.qty)||0),0);
@@ -1939,16 +1946,16 @@
 
             // ── FEATURE 1C: New vs Returning customers ─────────
             const firstOrderMonth = {};
-            const allDelivSorted  = [...delivered].sort((a,b) => new Date(a.createdAt||a.timestamp||0) - new Date(b.createdAt||b.timestamp||0));
+            const allDelivSorted  = [...delivered].sort((a,b) => new Date(getOrderFilterDate(a) || 0) - new Date(getOrderFilterDate(b) || 0));
             allDelivSorted.forEach(o => {
                 const name = o.customerName||o.customer||'?';
-                const mk   = new Date(o.createdAt||o.timestamp||Date.now()).toISOString().slice(0,7);
+                const mk   = new Date(getOrderFilterDate(o) || Date.now()).toISOString().slice(0,7);
                 if (!firstOrderMonth[name]) firstOrderMonth[name] = mk;
             });
             const newVsReturn = {};
             delivered.forEach(o => {
                 const name = o.customerName||o.customer||'?';
-                const mk   = new Date(o.createdAt||o.timestamp||Date.now()).toISOString().slice(0,7);
+                const mk   = new Date(getOrderFilterDate(o) || Date.now()).toISOString().slice(0,7);
                 if (!newVsReturn[mk]) newVsReturn[mk] = { newC:0, retC:0 };
                 if (firstOrderMonth[name] === mk) newVsReturn[mk].newC++;
                 else newVsReturn[mk].retC++;
@@ -2068,14 +2075,14 @@
         //  2. GROWTH & TARGET
         // ════════════════════════════════════════════════════
         window.renderGrowthTab = () => {
-            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED' && passesFilter(o.createdAt || o.timestamp));
+            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED' && passesFilter(getOrderFilterDate(o)));
             const now = new Date(); const mn = now.getMonth(); const yr = now.getFullYear();
 
             const monthlyBoxes = {};
             orders.forEach(o => {
                 const items = Array.isArray(o.items) ? o.items : Object.values(o.items || {});
                 const boxes = items.reduce((s,i) => s + (parseInt(i.qty)||0), 0);
-                const d = new Date(o.createdAt || o.timestamp || Date.now());
+                const d = new Date(getOrderFilterDate(o) || Date.now());
                 const mk = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
                 monthlyBoxes[mk] = (monthlyBoxes[mk] || 0) + boxes;
             });
@@ -2091,7 +2098,7 @@
             orders.forEach(o => {
                 const name = o.customerName || o.customer || '?';
                 allCust.add(name);
-                const d = new Date(o.createdAt || o.timestamp || Date.now());
+                const d = new Date(getOrderFilterDate(o) || Date.now());
                 if (d.getMonth() === mn && d.getFullYear() === yr) {
                     if (!recurringCustomers.has(name)) newCustomers.add(name);
                     else recurringCustomers.add(name);
@@ -2099,7 +2106,7 @@
             });
 
             const lostCount = [...allCust].filter(c => {
-                const lastOrder = Math.max(...orders.filter(o => (o.customerName||o.customer) === c).map(o => new Date(o.createdAt||o.timestamp||0).getTime()));
+                const lastOrder = Math.max(...orders.filter(o => (o.customerName||o.customer) === c).map(o => new Date(getOrderFilterDate(o) || 0).getTime()));
                 return (Date.now() - lastOrder) > 30*86400000;
             }).length;
             const churnRate = allCust.size > 0 ? Math.round((lostCount / allCust.size) * 100) : 0;
@@ -2198,14 +2205,14 @@
             const period = parseInt(document.getElementById('targetPeriod')?.value) || 1;
             if (!targetRaw) { alert('Please enter a target volume'); return; }
 
-            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED' && passesFilter(o.createdAt || o.timestamp));
+            const orders = Object.values(DATA.orders || {}).filter(o => o.status === 'DELIVERED' && passesFilter(getOrderFilterDate(o)));
             const now = new Date(); const mn = now.getMonth(); const yr = now.getFullYear();
             const thisMonthKey = yr + '-' + String(mn+1).padStart(2,'0');
             const monthlyBoxes = {};
             orders.forEach(o => {
                 const items = Array.isArray(o.items) ? o.items : Object.values(o.items||{});
                 const boxes = items.reduce((s,i)=>s+(parseInt(i.qty)||0),0);
-                const d = new Date(o.createdAt||o.timestamp||Date.now());
+                const d = new Date(getOrderFilterDate(o) || Date.now());
                 const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
                 monthlyBoxes[mk] = (monthlyBoxes[mk]||0)+boxes;
             });
@@ -2872,6 +2879,10 @@
                 receivables: renderReceivablesTable,
             };
             if (renderMap[tab]) renderMap[tab]();
+            // The "Auto Growth Rate / Best / Worst / Projected" widget physically lives on the
+            // Sales tab (Order Overview) but its data is computed by renderGrowthTab() — call it
+            // here too so that widget actually gets filled when viewing Sales, not just Growth tab.
+            if (tab === 'sales') { try { renderGrowthTab(); } catch(e) {} }
             if (tab === 'production') { renderProductionCharts(); }
         }
 
