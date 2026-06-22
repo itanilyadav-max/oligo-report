@@ -1268,6 +1268,14 @@
                                 <select id="receivableStatusFilter" onchange="filterReceivablesList()" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer max-w-[180px]">
                                     <option value="">All Statuses</option>
                                 </select>
+                                <select id="receivableSortFilter" onchange="changeReceivableSort()" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer max-w-[190px]">
+                                    <option value="amount-desc">Sort: Amount (High → Low)</option>
+                                    <option value="amount-asc">Sort: Amount (Low → High)</option>
+                                    <option value="name-asc">Sort: Name (A → Z)</option>
+                                    <option value="name-desc">Sort: Name (Z → A)</option>
+                                    <option value="followup-asc">Sort: Follow-up (Soonest)</option>
+                                    <option value="recent">Sort: Recently Updated</option>
+                                </select>
                                 <button onclick="filterReceivables('Today')" class="text-xs font-bold bg-white border px-3 py-1.5 rounded hover:bg-slate-100 whitespace-nowrap">Today's Follow-ups</button>
                                 <input type="text" id="receivableSearchInput" placeholder="Search Client..." onkeyup="filterReceivablesList()" class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 flex-1 md:w-48 bg-white">
                             </div>
@@ -3062,11 +3070,41 @@
         };
 
         // ── RENDER RECEIVABLES TABLE ────────────────────────
+        // ── RECEIVABLE SORT STATE ─────────────────────────────
+        window._recvSortBy = window._recvSortBy || 'amount-desc';
+        window.changeReceivableSort = () => {
+            window._recvSortBy = document.getElementById('receivableSortFilter').value;
+            renderReceivablesTable();
+        };
+
         window.renderReceivablesTable = () => {
             const records = Object.entries(DATA.receivables || {});
             const tbody   = document.getElementById('receivableBody');
             const groupSel  = document.getElementById('receivableGroupFilter');
             const statusSel = document.getElementById('receivableStatusFilter');
+            const sortSel   = document.getElementById('receivableSortFilter');
+
+            // Restore selected sort option (survives re-renders triggered by edits/deletes)
+            if (sortSel && sortSel.value !== window._recvSortBy) sortSel.value = window._recvSortBy;
+
+            // Apply sort
+            const sortBy = window._recvSortBy;
+            records.sort(([, a], [, b]) => {
+                switch (sortBy) {
+                    case 'amount-asc':   return (parseFloat(a.amount)||0) - (parseFloat(b.amount)||0);
+                    case 'amount-desc':  return (parseFloat(b.amount)||0) - (parseFloat(a.amount)||0);
+                    case 'name-asc':     return (a.name||'').localeCompare(b.name||'');
+                    case 'name-desc':    return (b.name||'').localeCompare(a.name||'');
+                    case 'followup-asc': {
+                        if (!a.followUpDate && !b.followUpDate) return 0;
+                        if (!a.followUpDate) return 1;
+                        if (!b.followUpDate) return -1;
+                        return new Date(a.followUpDate) - new Date(b.followUpDate);
+                    }
+                    case 'recent':       return new Date(b.lastUpdated||0) - new Date(a.lastUpdated||0);
+                    default:             return 0;
+                }
+            });
 
             // Populate group filter options
             const groups = [...new Set(records.map(([, v]) => v.group || 'General').filter(Boolean))].sort();
@@ -3254,6 +3292,7 @@
                        <p class="text-xs mt-1">Add your first note below.</p>
                    </div>`
                 : [...log].reverse().map((entry, i) => {
+                    const originalIndex = log.length - 1 - i; // index in the un-reversed remarksLog array
                     const d = entry.date
                         ? new Date(entry.date).toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'})
                         : '—';
@@ -3264,7 +3303,12 @@
                                 <i class="fas fa-clock text-slate-300"></i> ${d}
                                 ${isLatest ? '<span class="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black ml-1">LATEST</span>' : ''}
                             </span>
-                            ${entry.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor(entry.status)}">${entry.status}</span>` : ''}
+                            <div class="flex items-center gap-1.5">
+                                ${entry.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusColor(entry.status)}">${entry.status}</span>` : ''}
+                                <button onclick="deleteRemarkEntry(${originalIndex})" title="Delete note" class="text-slate-300 hover:text-red-500 transition w-5 h-5 flex items-center justify-center rounded hover:bg-red-50 no-print">
+                                    <i class="fas fa-trash text-[11px]"></i>
+                                </button>
+                            </div>
                         </div>
                         <p class="text-sm text-slate-700 leading-relaxed">${entry.text}</p>
                     </div>`;
@@ -3289,6 +3333,34 @@
             backdrop.classList.add('hidden');
             document.body.style.overflow = '';
             _currentRemarkId = null;
+        };
+
+        // ── DELETE A SINGLE CONVERSATION NOTE ────────────────
+        window.deleteRemarkEntry = (index) => {
+            if (!_currentRemarkId) return;
+            const existing = DATA.receivables[_currentRemarkId] || {};
+            const log = Array.isArray(existing.remarksLog) ? [...existing.remarksLog] : [];
+            if (index < 0 || index >= log.length) return;
+
+            if (!confirm('Delete this note? This cannot be undone.')) return;
+
+            log.splice(index, 1);
+            const updated = {
+                ...existing,
+                remarksLog: log,
+                remark: log.length ? log[log.length - 1].text : '',
+            };
+
+            const afterDelete = () => {
+                DATA.receivables[_currentRemarkId] = updated;
+                renderReceivablesTable();
+                const savedId = _currentRemarkId;
+                openRemarkModal(savedId); // refresh drawer with updated log
+            };
+
+            update(ref(db, 'receivables/' + _currentRemarkId), updated)
+                .then(afterDelete)
+                .catch(err => { console.warn('Firebase write failed, saved locally:', err.message); afterDelete(); });
         };
 
         window.saveRemark = () => {
